@@ -1,0 +1,217 @@
+{
+  "version": 1,
+  "source": "../analyst-app pipeline parity baseline",
+  "rawEvents": [
+    {
+      "timestampMs": 1000,
+      "screen": "Deliveries",
+      "target": "Attention required filter",
+      "visibleText": "Attention required",
+      "eventTypeGuess": "click",
+      "colorCues": [],
+      "stateChange": "Filter selected; filtered to attention required orders",
+      "confidence": 0.95,
+      "payload": {}
+    },
+    {
+      "timestampMs": 3000,
+      "screen": "Deliveries",
+      "target": "Row ORD-2001 late pickup red badge",
+      "visibleText": "ORD-2001 Late pickup",
+      "eventTypeGuess": "navigation",
+      "colorCues": ["red badge"],
+      "stateChange": "Opens order details screen for ORD-2001 with late pickup warning",
+      "confidence": 0.95,
+      "payload": {
+        "orderId": "ORD-2001",
+        "possibleIssueType": "Late pickup"
+      }
+    },
+    {
+      "timestampMs": 5200,
+      "screen": "Order Details",
+      "target": "Late pickup red badge for ORD-2001",
+      "visibleText": "Late pickup",
+      "eventTypeGuess": "hover",
+      "colorCues": ["red badge"],
+      "stateChange": "Tooltip 'Late pickup' is displayed",
+      "confidence": 0.9,
+      "payload": {
+        "orderId": "ORD-2001",
+        "possibleIssueType": "Late pickup"
+      }
+    },
+    {
+      "timestampMs": 8000,
+      "screen": "Order Details",
+      "target": "Mark pickup completed button",
+      "visibleText": "Mark pickup completed",
+      "eventTypeGuess": "click",
+      "colorCues": ["green status"],
+      "stateChange": "Pickup completed successfully; warning disappears; green status visible",
+      "confidence": 0.94,
+      "payload": {
+        "orderId": "ORD-2001",
+        "possibleIssueType": "Late pickup"
+      }
+    },
+    {
+      "timestampMs": 9000,
+      "screen": "Order Details",
+      "target": "Resolve late pickup",
+      "visibleText": "Resolve late pickup",
+      "eventTypeGuess": "click",
+      "colorCues": ["green status"],
+      "stateChange": "Issue resolved successfully; badge disappears",
+      "confidence": 0.94,
+      "payload": {
+        "orderId": "ORD-2001",
+        "possibleIssueType": "Late pickup"
+      }
+    },
+    {
+      "timestampMs": 12000,
+      "screen": "Deliveries",
+      "target": "Row ORD-2002 unassigned courier orange badge",
+      "visibleText": "ORD-2002 Unassigned courier",
+      "eventTypeGuess": "navigation",
+      "colorCues": ["orange badge"],
+      "stateChange": "Opens order details screen for ORD-2002 with unassigned courier warning",
+      "confidence": 0.96,
+      "payload": {
+        "orderId": "ORD-2002",
+        "possibleIssueType": "Unassigned courier"
+      }
+    },
+    {
+      "timestampMs": 15000,
+      "screen": "Order Details",
+      "target": "Take Action dropdown",
+      "visibleText": "Take Action",
+      "eventTypeGuess": "click",
+      "colorCues": [],
+      "stateChange": "Action options open for ORD-2002",
+      "confidence": 0.93,
+      "payload": {
+        "orderId": "ORD-2002",
+        "possibleIssueType": "Unassigned courier"
+      }
+    },
+    {
+      "timestampMs": 18000,
+      "screen": "Order Details",
+      "target": "Send order to drivers modal",
+      "visibleText": "Send order to drivers",
+      "eventTypeGuess": "click",
+      "colorCues": [],
+      "stateChange": "Driver assignment modal opens for ORD-2002",
+      "confidence": 0.92,
+      "payload": {
+        "orderId": "ORD-2002",
+        "possibleIssueType": "Unassigned courier"
+      }
+    },
+    {
+      "timestampMs": 21000,
+      "screen": "Driver Assignment",
+      "target": "Driver checkbox Alex",
+      "visibleText": "Alex Driver",
+      "eventTypeGuess": "click",
+      "colorCues": [],
+      "stateChange": "Driver is selected for ORD-2002",
+      "confidence": 0.91,
+      "payload": {
+        "orderId": "ORD-2002",
+        "possibleIssueType": "Unassigned courier"
+      }
+    },
+    {
+      "timestampMs": 25000,
+      "screen": "Order Details",
+      "target": "Confirm courier assigned",
+      "visibleText": "Confirm courier assigned",
+      "eventTypeGuess": "click",
+      "colorCues": ["green status"],
+      "stateChange": "Courier assigned successfully; issue resolved; badge disappears",
+      "confidence": 0.94,
+      "payload": {
+        "orderId": "ORD-2002",
+        "possibleIssueType": "Unassigned courier"
+      }
+    },
+    {
+      "timestampMs": 30000,
+      "screen": "Deliveries",
+      "target": "Red issue badge",
+      "visibleText": "Late pickup",
+      "eventTypeGuess": "hover",
+      "colorCues": ["red badge"],
+      "stateChange": "Tooltip 'Late pickup' is displayed but row order number is not readable",
+      "confidence": 0.55,
+      "payload": {
+        "notes": "The row order number is not readable."
+      }
+    }
+  ],
+  "expected": {
+    "actions": [
+      "FILTER_ISSUES",
+      "OPEN_ORDER",
+      "INSPECT_ISSUE",
+      "RESOLVE_ISSUE",
+      "RESOLVE_ISSUE",
+      "OPEN_ORDER",
+      "TAKE_ACTION",
+      "OPEN_DRIVER_ASSIGNMENT",
+      "SELECT_DRIVER",
+      "RESOLVE_ISSUE",
+      "INSPECT_ISSUE"
+    ],
+    "qualityIssueTypes": ["LOW_CONFIDENCE", "UNKNOWN_TARGET"],
+    "scenarioCount": 2,
+    "scenarios": [
+      {
+        "code": "LATE_PICKUP",
+        "orderId": "2001",
+        "issueType": "Late pickup",
+        "outcome": "resolved",
+        "status": "confirmed",
+        "durationMs": 5000,
+        "eventCount": 3
+      },
+      {
+        "code": "UNASSIGNED_COURIER",
+        "orderId": "2002",
+        "issueType": "Unassigned courier",
+        "outcome": "resolved",
+        "status": "confirmed",
+        "durationMs": 13000,
+        "eventCount": 5
+      }
+    ],
+    "groupSignatures": [
+      "LATE_PICKUP>OPEN_ORDER>INSPECT_ISSUE>RESOLVE_ISSUE",
+      "UNASSIGNED_COURIER>OPEN_ORDER>TAKE_ACTION>OPEN_DRIVER_ASSIGNMENT>SELECT_DRIVER>RESOLVE_ISSUE"
+    ],
+    "projectGroupCodes": ["LATE_PICKUP", "UNASSIGNED_COURIER"],
+    "metrics": {
+      "averageDurationMs": 9000,
+      "medianDurationMs": 5000,
+      "p95DurationMs": 13000,
+      "manualCheckCount": 2,
+      "manualActionCount": 4,
+      "confidenceAverage": 0.9
+    },
+    "graph": {
+      "nodes": 6,
+      "edges": 6,
+      "openOrderFrequency": 2
+    },
+    "report": {
+      "summary": "Построено 2 экземпляров и 2 групп сценариев. Нормализация, границы и метрики рассчитаны детерминированным Go-кодом.",
+      "normalizationVersion": "vision-normalizer-v10",
+      "boundaryRuleVersion": "boundary-rules-v3",
+      "groupingVersion": "scenario-grouping-v6"
+    }
+  }
+}

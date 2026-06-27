@@ -1,0 +1,22 @@
+DROP TABLE IF EXISTS settings_audit_log;
+DROP TABLE IF EXISTS ground_truth_events;
+DROP TABLE IF EXISTS boundary_rules;
+DROP TABLE IF EXISTS known_scenarios;
+DROP TABLE IF EXISTS scenario_graphs;
+DROP TABLE IF EXISTS analyst_reports;
+DROP TABLE IF EXISTS data_quality_issues;
+DROP TABLE IF EXISTS automation_candidates;
+DROP TABLE IF EXISTS scenario_instances;
+DROP TABLE IF EXISTS scenario_templates;
+DROP TABLE IF EXISTS action_events;
+DROP TABLE IF EXISTS raw_vision_events;
+DROP TABLE IF EXISTS outbox_events;
+DROP TABLE IF EXISTS job_attempts;
+DROP TABLE IF EXISTS analysis_jobs;
+DROP TABLE IF EXISTS analysis_runs;
+DROP TABLE IF EXISTS recordings;
+DROP TABLE IF EXISTS organizations;
+DROP TYPE IF EXISTS run_status;
+DROP TYPE IF EXISTS job_status;
+DROP TYPE IF EXISTS recording_status;
+

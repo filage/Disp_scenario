@@ -1,0 +1,221 @@
+name: dispscenario-analyst-v2
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: analyst
+      POSTGRES_PASSWORD: analyst
+      POSTGRES_DB: analyst
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analyst -d analyst"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--appendonly", "yes"]
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: analyst
+      MINIO_ROOT_PASSWORD: analyst-secret
+      MINIO_API_CORS_ALLOW_ORIGIN: http://localhost:3000
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        set -eu
+        mc alias set local http://minio:9000 analyst analyst-secret
+        mc mb --ignore-existing local/analyst-recordings
+    depends_on:
+      minio:
+        condition: service_healthy
+    restart: "no"
+
+  migrate:
+    image: migrate/migrate:v4.18.3
+    volumes:
+      - ./backend/migrations:/migrations:ro
+    command:
+      [
+        "-path",
+        "/migrations",
+        "-database",
+        "postgres://analyst:analyst@postgres:5432/analyst?sslmode=disable",
+        "up"
+      ]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build:
+      context: ./backend
+      args:
+        TARGET: api
+    environment:
+      APP_ENV: development
+      API_ADDR: ":8787"
+      DATABASE_URL: postgres://analyst:analyst@postgres:5432/analyst?sslmode=disable
+      REDIS_ADDR: redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+      S3_ACCESS_KEY: analyst
+      S3_SECRET_KEY: analyst-secret
+      S3_BUCKET: analyst-recordings
+      S3_USE_SSL: "false"
+      AUTH_DISABLED: "true"
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY must be set in .env}
+      GEMINI_MODEL: ${GEMINI_MODEL:?GEMINI_MODEL must be set in .env}
+      WEB_ORIGIN: http://localhost:3000
+    ports:
+      - "8787:8787"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8787/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  worker:
+    build:
+      context: ./backend
+      args:
+        TARGET: worker
+    environment:
+      APP_ENV: development
+      DATABASE_URL: postgres://analyst:analyst@postgres:5432/analyst?sslmode=disable
+      REDIS_ADDR: redis:6379
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_ENDPOINT: http://localhost:9000
+      S3_ACCESS_KEY: analyst
+      S3_SECRET_KEY: analyst-secret
+      S3_BUCKET: analyst-recordings
+      S3_USE_SSL: "false"
+      AUTH_DISABLED: "true"
+      WORKER_METRICS_ADDR: ":9091"
+      GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY must be set in .env}
+      GEMINI_MODEL: ${GEMINI_MODEL:?GEMINI_MODEL must be set in .env}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      redis:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    expose:
+      - "9091"
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_API_URL: /api/backend
+    environment:
+      API_URL: http://api:8787
+      NEXT_PUBLIC_API_URL: /api/backend
+      APP_URL: http://localhost:3000
+      OIDC_ISSUER: ${OIDC_ISSUER:-}
+      OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
+      OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:v3.4.0
+    command: ["--config.file=/etc/prometheus/prometheus.yml"]
+    volumes:
+      - ./infra/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+    depends_on:
+      - api
+      - worker
+
+  loki:
+    image: grafana/loki:3.5.0
+    command: ["-config.file=/etc/loki/config.yml"]
+    volumes:
+      - ./infra/loki/config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    ports:
+      - "3100:3100"
+
+  alloy:
+    image: grafana/alloy:v1.9.1
+    command: ["run", "/etc/alloy/config.alloy"]
+    volumes:
+      - ./infra/alloy/config.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:12.0.1
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: analyst
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    volumes:
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - grafana_data:/var/lib/grafana
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+      - loki
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  prometheus_data:
+  loki_data:
+  grafana_data:

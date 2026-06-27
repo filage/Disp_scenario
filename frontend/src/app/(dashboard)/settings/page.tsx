@@ -1,0 +1,28 @@
+import { PageFrame } from "@/components/page-frame";
+import {
+  SettingsEditor,
+  type SettingsData,
+} from "@/features/settings/settings-editor";
+import { apiData } from "@/lib/data";
+
+export const dynamic = "force-dynamic";
+
+export default async function SettingsPage() {
+  const settings = await apiData<SettingsData>("/v1/settings").catch(() => ({
+    versions: {},
+    knownScenarios: [],
+    boundaryRules: [],
+    actionCatalog: [],
+    dataQualityFlags: [],
+  }));
+
+  return (
+    <PageFrame
+      eyebrow="Runtime policy"
+      title="Настройки системы"
+      description="Редактирование известных сценариев и правил границ, версии промптов, каталог канонических действий и флаги качества данных."
+    >
+      <SettingsEditor settings={settings} />
+    </PageFrame>
+  );
+}

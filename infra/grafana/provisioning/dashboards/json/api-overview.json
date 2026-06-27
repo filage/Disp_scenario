@@ -1,0 +1,162 @@
+{
+  "annotations": {"list": []},
+  "editable": true,
+  "panels": [
+    {
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 0, "y": 0},
+      "id": 1,
+      "targets": [{"expr": "up{job=\"analyst-api\"}", "refId": "A"}],
+      "title": "API availability",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 5, "w": 6, "x": 6, "y": 0},
+      "id": 2,
+      "targets": [{"expr": "up{job=\"analyst-worker\"}", "refId": "A"}],
+      "title": "Worker availability",
+      "type": "stat"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 5},
+      "id": 3,
+      "options": {"legend": {"displayMode": "list", "placement": "bottom"}},
+      "targets": [
+        {
+          "expr": "sum by (route, status) (rate(analyst_http_requests_total[5m]))",
+          "legendFormat": "{{route}} {{status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "HTTP request rate",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 5},
+      "id": 4,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, route) (rate(analyst_http_request_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{route}}",
+          "refId": "A"
+        }
+      ],
+      "title": "API p95 latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 13},
+      "id": 5,
+      "targets": [
+        {
+          "expr": "sum by (status, provider) (increase(analyst_analysis_jobs_total[1h]))",
+          "legendFormat": "{{provider}} {{status}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Analysis jobs / hour",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 13},
+      "id": 6,
+      "targets": [
+        {
+          "expr": "sum by (dependency, operation) (increase(analyst_dependency_operations_total{status=\"error\"}[1h]))",
+          "legendFormat": "{{dependency}} {{operation}}",
+          "refId": "A"
+        }
+      ],
+      "title": "Dependency errors / hour",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "fieldConfig": {"defaults": {"unit": "s"}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 21},
+      "id": 7,
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, sum by (le, operation) (rate(analyst_sql_query_duration_seconds_bucket[5m])))",
+          "legendFormat": "{{operation}}",
+          "refId": "A"
+        }
+      ],
+      "title": "PostgreSQL p95 latency",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "prometheus", "uid": "Prometheus"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 21},
+      "id": 8,
+      "targets": [
+        {
+          "expr": "sum by (status) (increase(analyst_outbox_events_total[1h]))",
+          "legendFormat": "outbox {{status}}",
+          "refId": "A"
+        },
+        {
+          "expr": "sum by (action, status) (increase(analyst_reconciliation_actions_total[1h]))",
+          "legendFormat": "{{action}} {{status}}",
+          "refId": "B"
+        }
+      ],
+      "title": "Outbox and recovery actions",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {"type": "loki", "uid": "Loki"},
+      "fieldConfig": {"defaults": {}, "overrides": []},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 29},
+      "id": 9,
+      "options": {
+        "dedupStrategy": "none",
+        "enableLogDetails": true,
+        "showCommonLabels": false,
+        "showLabels": false,
+        "showTime": true,
+        "sortOrder": "Descending",
+        "wrapLogMessage": true
+      },
+      "targets": [
+        {
+          "expr": "{service=~\"api|worker\"} | json | correlation_id=~\"$correlation_id\"",
+          "refId": "A"
+        }
+      ],
+      "title": "Request and job logs by correlation_id",
+      "type": "logs"
+    }
+  ],
+  "refresh": "10s",
+  "schemaVersion": 41,
+  "tags": ["analyst", "api", "worker"],
+  "templating": {
+    "list": [
+      {
+        "current": {"selected": false, "text": ".*", "value": ".*"},
+        "hide": 0,
+        "label": "Correlation ID",
+        "name": "correlation_id",
+        "options": [],
+        "query": ".*",
+        "skipUrlSync": false,
+        "type": "textbox"
+      }
+    ]
+  },
+  "title": "DispScenario operations",
+  "version": 2
+}

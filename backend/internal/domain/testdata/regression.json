@@ -1,0 +1,66 @@
+{
+  "version": 1,
+  "source": "../analyst-app/test/scenario-regression.test.js",
+  "cases": [
+    {
+      "name": "courier confirmation click resolves issue",
+      "rawEvents": [
+        {
+          "timestampMs": 24000,
+          "screen": "Order Details",
+          "target": "Confirm courier assigned menu item",
+          "visibleText": "Confirm courier assigned",
+          "eventTypeGuess": "click",
+          "colorCues": [],
+          "stateChange": "Take Action menu closes",
+          "confidence": 0.95,
+          "payload": {
+            "orderId": "1011",
+            "possibleIssueType": "Unassigned courier"
+          }
+        }
+      ],
+      "expectedActions": ["RESOLVE_ISSUE"]
+    },
+    {
+      "name": "order row opens details",
+      "rawEvents": [
+        {
+          "timestampMs": 5300,
+          "screen": "Deliveries",
+          "target": "Row ORD-1022",
+          "visibleText": "ORD-1022",
+          "eventTypeGuess": "navigation",
+          "colorCues": [],
+          "stateChange": "Navigates to Order Details for ORD-1022",
+          "confidence": 0.95,
+          "payload": {
+            "orderId": "ORD-1022"
+          }
+        }
+      ],
+      "expectedActions": ["OPEN_ORDER"],
+      "expectedOrderId": "1022"
+    },
+    {
+      "name": "unknown low-confidence badge inspection",
+      "rawEvents": [
+        {
+          "timestampMs": 1000,
+          "screen": "Deliveries",
+          "target": "Red issue badge",
+          "visibleText": "Late pickup",
+          "eventTypeGuess": "hover",
+          "colorCues": ["red badge"],
+          "stateChange": "Tooltip 'Late pickup' is displayed",
+          "confidence": 0.55,
+          "payload": {
+            "notes": "The row order number is not readable."
+          }
+        }
+      ],
+      "expectedActions": ["INSPECT_ISSUE"],
+      "expectedFlags": ["LOW_CONFIDENCE", "UNKNOWN_TARGET"]
+    }
+  ]
+}
