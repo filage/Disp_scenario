@@ -58,7 +58,7 @@ services:
     region: frankfurt
     dockerfilePath: ./frontend/Dockerfile
     dockerContext: ./frontend
-    healthCheckPath: /
+    healthCheckPath: /api/health
     autoDeployTrigger: commit
     buildFilter:
       paths:
