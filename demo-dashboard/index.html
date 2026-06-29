@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@100;200;300;400;500;600;700;800;900&display=swap"
+      rel="stylesheet"
+    />
+    <title>Admin Portal</title>
+    <script>
+      const demoParams = new URLSearchParams(window.location.search);
+      if (demoParams.get("reset-demo") === "1") {
+        [
+          "demoDeliveryPatches",
+          "demoScenarioEvents",
+          "deliveryFilters",
+          "deliveriesPageSettings",
+          "deliveryInfoSettings",
+          "currentDate",
+          "demoBackendVersion"
+        ].forEach((key) => localStorage.removeItem(key));
+        demoParams.delete("reset-demo");
+        const cleanQuery = demoParams.toString();
+        history.replaceState(
+          null,
+          "",
+          `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}${window.location.hash}`
+        );
+      }
+    </script>
+    <script type="module" crossorigin src="/assets/index-CPeU-1Es.js?v=live-list-reset-demo"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Gyflhkl3.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script src="https://cdn.gpteng.co/gptengineer.js" type="module"></script>
+  </body>
+</html>
