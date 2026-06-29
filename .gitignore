@@ -13,6 +13,8 @@ bin/
 tmp/
 backups/
 output/
+tests/fixtures/videos/*.mp4
+tests/fixtures/videos/*.webm
 .playwright-cli/
 *.log
 .idea/

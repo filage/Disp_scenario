@@ -1,0 +1,31 @@
+{
+  "version": 1,
+  "provider": "s3-compatible",
+  "prefix": "test-fixtures/v1",
+  "videos": [
+    {
+      "scenario": "late-pickup-mark-completed",
+      "file": "late-pickup-mark-completed.webm",
+      "objectKey": "test-fixtures/v1/late-pickup-mark-completed.webm",
+      "contentType": "video/webm",
+      "sizeBytes": 1235280,
+      "sha256": "0c3207b92fb758500ccb00238704e356b591d0ac2150ab552d484f7453acb4d5",
+      "durationSeconds": 11.24,
+      "width": 1920,
+      "height": 1080,
+      "codec": "vp8"
+    },
+    {
+      "scenario": "unassigned-courier-assign-confirm",
+      "file": "unassigned-courier-assign-confirm.webm",
+      "objectKey": "test-fixtures/v1/unassigned-courier-assign-confirm.webm",
+      "contentType": "video/webm",
+      "sizeBytes": 1743070,
+      "sha256": "17c0c48e781547ab55a9eb6ecc092c832e54de6afabe43b75c44652708c32863",
+      "durationSeconds": 17.56,
+      "width": 1920,
+      "height": 1080,
+      "codec": "vp8"
+    }
+  ]
+}
