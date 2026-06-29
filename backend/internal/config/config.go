@@ -24,6 +24,7 @@ type Config struct {
 	S3SecretKey         string
 	S3Bucket            string
 	S3UseSSL            bool
+	S3EnsureBucket      bool
 	S3Region            string
 	AuthDisabled        bool
 	OIDCIssuer          string
@@ -42,6 +43,10 @@ func Load() (Config, error) {
 	s3SSL, err := strconv.ParseBool(value("S3_USE_SSL", "false"))
 	if err != nil {
 		return Config{}, fmt.Errorf("S3_USE_SSL: %w", err)
+	}
+	s3EnsureBucket, err := strconv.ParseBool(value("S3_ENSURE_BUCKET", "true"))
+	if err != nil {
+		return Config{}, fmt.Errorf("S3_ENSURE_BUCKET: %w", err)
 	}
 	authDisabled, err := strconv.ParseBool(value("AUTH_DISABLED", "false"))
 	if err != nil {
@@ -81,6 +86,7 @@ func Load() (Config, error) {
 		S3SecretKey:         os.Getenv("S3_SECRET_KEY"),
 		S3Bucket:            value("S3_BUCKET", "analyst-recordings"),
 		S3UseSSL:            s3SSL,
+		S3EnsureBucket:      s3EnsureBucket,
 		S3Region:            value("S3_REGION", "us-east-1"),
 		AuthDisabled:        authDisabled,
 		OIDCIssuer:          os.Getenv("OIDC_ISSUER"),

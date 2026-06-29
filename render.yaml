@@ -30,6 +30,8 @@ services:
         value: gemini-3.5-flash
       - key: S3_USE_SSL
         value: "true"
+      - key: S3_ENSURE_BUCKET
+        value: "false"
       - key: DATABASE_URL
         sync: false
       - key: WEB_ORIGIN

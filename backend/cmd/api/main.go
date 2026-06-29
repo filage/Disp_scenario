@@ -58,9 +58,11 @@ func main() {
 		logger.Error("storage configuration failed", "error", err)
 		os.Exit(1)
 	}
-	if err := objectStorage.EnsureBucket(ctx); err != nil {
-		logger.Error("storage initialization failed", "error", err)
-		os.Exit(1)
+	if cfg.S3EnsureBucket {
+		if err := objectStorage.EnsureBucket(ctx); err != nil {
+			logger.Error("storage initialization failed", "error", err)
+			os.Exit(1)
+		}
 	}
 	if cfg.SeedDemoFixtures {
 		if err := demo.SeedFixtures(
