@@ -13,6 +13,24 @@ import (
 
 const AnalysisTask = "analysis:process"
 
+type AnalysisPayload struct {
+	JobID         string `json:"jobId"`
+	AnalysisRunID string `json:"analysisRunId"`
+	RecordingID   string `json:"recordingId"`
+	CorrelationID string `json:"correlationId"`
+}
+
+func DecodeAnalysisPayload(payload json.RawMessage) (AnalysisPayload, error) {
+	var envelope AnalysisPayload
+	if err := json.Unmarshal(payload, &envelope); err != nil {
+		return AnalysisPayload{}, fmt.Errorf("decode analysis payload: %w", err)
+	}
+	if envelope.JobID == "" || envelope.AnalysisRunID == "" || envelope.RecordingID == "" {
+		return AnalysisPayload{}, fmt.Errorf("decode analysis payload: required ids are missing")
+	}
+	return envelope, nil
+}
+
 type Queue interface {
 	EnqueueAnalysis(ctx context.Context, payload json.RawMessage) (string, error)
 }
@@ -29,11 +47,9 @@ func (q *AsynqQueue) EnqueueAnalysis(ctx context.Context, payload json.RawMessag
 	started := time.Now()
 	defer func() { observability.ObserveDependency("redis", "enqueue_analysis", started, err) }()
 	task := asynq.NewTask(AnalysisTask, payload)
-	var envelope struct {
-		JobID string `json:"jobId"`
-	}
-	if err := json.Unmarshal(payload, &envelope); err != nil {
-		return "", fmt.Errorf("decode analysis payload: %w", err)
+	envelope, err := DecodeAnalysisPayload(payload)
+	if err != nil {
+		return "", err
 	}
 	info, err := q.client.EnqueueContext(
 		ctx,

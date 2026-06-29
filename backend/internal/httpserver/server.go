@@ -2,6 +2,7 @@ package httpserver
 
 import (
 	"context"
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"log/slog"
@@ -29,16 +30,17 @@ import (
 const healthDependencyTimeout = 2 * time.Second
 
 type Server struct {
-	router     chi.Router
-	pool       *pgxpool.Pool
-	recordings *recording.Repository
-	analysis   *analysis.Service
-	artifacts  *artifacts.Service
-	auth       *authn.Middleware
-	storage    *storage.Storage
-	redis      *redis.Client
-	logger     *slog.Logger
-	webOrigin  string
+	router       chi.Router
+	pool         *pgxpool.Pool
+	recordings   *recording.Repository
+	analysis     *analysis.Service
+	artifacts    *artifacts.Service
+	auth         *authn.Middleware
+	storage      *storage.Storage
+	redis        *redis.Client
+	sharedSecret string
+	logger       *slog.Logger
+	webOrigin    string
 }
 
 func New(
@@ -49,13 +51,15 @@ func New(
 	authMiddleware *authn.Middleware,
 	objectStorage *storage.Storage,
 	redisClient *redis.Client,
+	sharedSecret string,
 	logger *slog.Logger,
 	webOrigin string,
 ) *Server {
 	server := &Server{
 		pool: pool, recordings: recordings, analysis: analysisService,
 		artifacts: artifactService, auth: authMiddleware,
-		storage: objectStorage, redis: redisClient, logger: logger, webOrigin: webOrigin,
+		storage: objectStorage, redis: redisClient, sharedSecret: sharedSecret,
+		logger: logger, webOrigin: webOrigin,
 	}
 	server.router = server.routes()
 	return server
@@ -77,6 +81,7 @@ func (s *Server) routes() chi.Router {
 	router.Get("/health", s.health)
 	router.Handle("/metrics", promhttp.Handler())
 	router.Route("/v1", func(router chi.Router) {
+		router.Use(s.requireSharedSecret)
 		router.Use(middleware.Throttle(100))
 		router.Use(newIPRateLimiter(300, time.Minute).Middleware)
 		router.Use(s.auth.Authenticate)
@@ -115,8 +120,23 @@ func (s *Server) routes() chi.Router {
 	return router
 }
 
+func (s *Server) requireSharedSecret(next http.Handler) http.Handler {
+	if s.sharedSecret == "" {
+		return next
+	}
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		provided := r.Header.Get("X-API-Shared-Secret")
+		if len(provided) != len(s.sharedSecret) ||
+			subtle.ConstantTimeCompare([]byte(provided), []byte(s.sharedSecret)) != 1 {
+			writeError(w, http.StatusUnauthorized, "invalid API credentials")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 func (s *Server) health(w http.ResponseWriter, r *http.Request) {
-	dependencies := map[string]string{"postgres": "ok", "redis": "ok", "s3": "ok"}
+	dependencies := map[string]string{"postgres": "ok", "s3": "ok"}
 	status := "ok"
 
 	postgresCtx, postgresCancel := context.WithTimeout(r.Context(), healthDependencyTimeout)
@@ -133,14 +153,19 @@ func (s *Server) health(w http.ResponseWriter, r *http.Request) {
 	}
 	s3Cancel()
 
-	redisStarted := time.Now()
-	redisCtx, redisCancel := context.WithTimeout(r.Context(), healthDependencyTimeout)
-	redisErr := s.redis.Ping(redisCtx).Err()
-	redisCancel()
-	observability.ObserveDependency("redis", "ping", redisStarted, redisErr)
-	if redisErr != nil {
-		dependencies["redis"] = "error"
-		status = "degraded"
+	if s.redis == nil {
+		dependencies["job_queue"] = "postgres"
+	} else {
+		dependencies["redis"] = "ok"
+		redisStarted := time.Now()
+		redisCtx, redisCancel := context.WithTimeout(r.Context(), healthDependencyTimeout)
+		redisErr := s.redis.Ping(redisCtx).Err()
+		redisCancel()
+		observability.ObserveDependency("redis", "ping", redisStarted, redisErr)
+		if redisErr != nil {
+			dependencies["redis"] = "error"
+			status = "degraded"
+		}
 	}
 	httpStatus := http.StatusOK
 	if status != "ok" {

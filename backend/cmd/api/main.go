@@ -18,11 +18,14 @@ import (
 	authn "github.com/example/dispscenario-analyst-v2/internal/auth"
 	"github.com/example/dispscenario-analyst-v2/internal/config"
 	"github.com/example/dispscenario-analyst-v2/internal/database"
+	"github.com/example/dispscenario-analyst-v2/internal/demo"
 	"github.com/example/dispscenario-analyst-v2/internal/httpserver"
 	"github.com/example/dispscenario-analyst-v2/internal/jobs"
 	"github.com/example/dispscenario-analyst-v2/internal/outbox"
+	"github.com/example/dispscenario-analyst-v2/internal/pipeline"
 	"github.com/example/dispscenario-analyst-v2/internal/recording"
 	"github.com/example/dispscenario-analyst-v2/internal/storage"
+	"github.com/example/dispscenario-analyst-v2/internal/vision"
 )
 
 func main() {
@@ -59,35 +62,60 @@ func main() {
 		logger.Error("storage initialization failed", "error", err)
 		os.Exit(1)
 	}
+	if cfg.SeedDemoFixtures {
+		if err := demo.SeedFixtures(
+			ctx, pool, objectStorage, cfg.DemoFixtureManifest, logger,
+		); err != nil {
+			logger.Error("demo fixture initialization failed", "error", err)
+			os.Exit(1)
+		}
+	}
 	authMiddleware, err := authn.New(ctx, cfg.AuthDisabled, cfg.OIDCIssuer, cfg.OIDCClientID)
 	if err != nil {
 		logger.Error("authentication initialization failed", "error", err)
 		os.Exit(1)
 	}
 
-	redisOptions := asynq.RedisClientOpt{
-		Addr: cfg.RedisAddr, Password: cfg.RedisPassword, DB: cfg.RedisDB,
+	var redisClient *redis.Client
+	if cfg.JobBackend == "redis" {
+		redisOptions := asynq.RedisClientOpt{
+			Addr: cfg.RedisAddr, Password: cfg.RedisPassword, DB: cfg.RedisDB,
+		}
+		redisClient = redis.NewClient(&redis.Options{
+			Addr: cfg.RedisAddr, Password: cfg.RedisPassword, DB: cfg.RedisDB,
+		})
+		defer func() {
+			if err := redisClient.Close(); err != nil {
+				logger.Error("redis client close failed", "error", err)
+			}
+		}()
+		queueClient := asynq.NewClient(redisOptions)
+		defer func() {
+			if err := queueClient.Close(); err != nil {
+				logger.Error("queue client close failed", "error", err)
+			}
+		}()
+		dispatcher := outbox.NewDispatcher(pool, jobs.NewAsynqQueue(queueClient), logger)
+		go func() {
+			if err := dispatcher.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Error("outbox dispatcher stopped", "error", err)
+			}
+		}()
+	} else {
+		analysisPipeline := pipeline.NewService(
+			pool,
+			objectStorage,
+			vision.GeminiProvider{APIKey: cfg.GeminiAPIKey, Model: cfg.GeminiModel},
+			logger,
+		)
+		processor := jobs.NewProcessor(pool, analysisPipeline, logger, "gemini")
+		runner := jobs.NewPostgresRunner(pool, processor, logger)
+		go func() {
+			if err := runner.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
+				logger.Error("postgres job runner stopped", "error", err)
+			}
+		}()
 	}
-	redisClient := redis.NewClient(&redis.Options{
-		Addr: cfg.RedisAddr, Password: cfg.RedisPassword, DB: cfg.RedisDB,
-	})
-	defer func() {
-		if err := redisClient.Close(); err != nil {
-			logger.Error("redis client close failed", "error", err)
-		}
-	}()
-	queueClient := asynq.NewClient(redisOptions)
-	defer func() {
-		if err := queueClient.Close(); err != nil {
-			logger.Error("queue client close failed", "error", err)
-		}
-	}()
-	dispatcher := outbox.NewDispatcher(pool, jobs.NewAsynqQueue(queueClient), logger)
-	go func() {
-		if err := dispatcher.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
-			logger.Error("outbox dispatcher stopped", "error", err)
-		}
-	}()
 	reconciler := outbox.NewReconciler(pool, objectStorage, logger)
 	go func() {
 		if err := reconciler.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
@@ -102,6 +130,7 @@ func main() {
 		authMiddleware,
 		objectStorage,
 		redisClient,
+		cfg.APISharedSecret,
 		logger,
 		cfg.WebOrigin,
 	)

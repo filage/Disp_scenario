@@ -1,0 +1,75 @@
+services:
+  - type: web
+    runtime: docker
+    name: disp-scenario-api
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./backend/Dockerfile.render
+    dockerContext: .
+    healthCheckPath: /health
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - backend/**
+        - tests/fixtures/videos.json
+        - render.yaml
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: JOB_BACKEND
+        value: postgres
+      - key: AUTH_DISABLED
+        value: "true"
+      - key: RUN_MIGRATIONS
+        value: "true"
+      - key: SEED_DEMO_FIXTURES
+        value: "true"
+      - key: DEMO_FIXTURE_MANIFEST
+        value: /app/test-fixtures.json
+      - key: GEMINI_MODEL
+        value: gemini-3.5-flash
+      - key: S3_USE_SSL
+        value: "true"
+      - key: DATABASE_URL
+        sync: false
+      - key: WEB_ORIGIN
+        sync: false
+      - key: API_SHARED_SECRET
+        sync: false
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: S3_ENDPOINT
+        sync: false
+      - key: S3_PUBLIC_ENDPOINT
+        sync: false
+      - key: S3_ACCESS_KEY
+        sync: false
+      - key: S3_SECRET_KEY
+        sync: false
+      - key: S3_BUCKET
+        sync: false
+      - key: S3_REGION
+        sync: false
+
+  - type: web
+    runtime: docker
+    name: disp-scenario-web
+    plan: free
+    region: frankfurt
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    healthCheckPath: /
+    autoDeployTrigger: commit
+    buildFilter:
+      paths:
+        - frontend/**
+        - render.yaml
+    envVars:
+      - key: API_URL
+        sync: false
+      - key: API_SHARED_SECRET
+        sync: false
+      - key: DEMO_USERNAME
+        sync: false
+      - key: DEMO_PASSWORD
+        sync: false

@@ -112,6 +112,33 @@ OIDC_CLIENT_ID=dispscenario-analyst
 
 The Go API validates JWT signature, issuer, audience, and expiry through OIDC discovery/JWKS. The `roles` or `role` claim must contain `viewer`, `analyst`, or `admin`.
 
+## Free Cloud Deployment
+
+The repository includes `render.yaml` for an occasional-use deployment with two free Render web services:
+
+- `disp-scenario-api`: Go API plus an in-process PostgreSQL job runner;
+- `disp-scenario-web`: Next.js frontend.
+
+Persistent data stays outside Render:
+
+- Neon Free stores PostgreSQL data;
+- a private Backblaze B2 bucket stores videos and evidence.
+
+The cloud API uses `JOB_BACKEND=postgres`, so Redis and a continuously running worker are not required. Local Docker Compose keeps the existing Redis/Asynq worker path.
+
+Before creating the Render Blueprint:
+
+1. Create a Neon project in an EU region and copy its `DATABASE_URL` with `sslmode=require`.
+2. In Backblaze, create a bucket-restricted application key with no file-name prefix. It needs list, read, write, and delete access because the API reads `test-fixtures/` and manages `recordings/` objects. Do not reuse the prefix-restricted fixture synchronization key.
+3. Configure bucket CORS for the final `https://<frontend>.onrender.com` origin and allow `GET`, `HEAD`, and `PUT` with all request headers.
+4. In Render, create a Blueprint from this repository and provide every variable marked `sync: false`.
+
+Use the Backblaze S3 endpoint for both `S3_ENDPOINT` and `S3_PUBLIC_ENDPOINT`, set `S3_BUCKET` to the private bucket name, and set `S3_REGION` to the region segment from the endpoint. Set `API_URL` to the public API URL and `WEB_ORIGIN` to the public frontend URL. If Render assigns a suffixed hostname, update both values and redeploy.
+
+The Render API image applies database migrations on startup. With `SEED_DEMO_FIXTURES=true`, it validates the two canonical B2 objects and inserts their metadata into PostgreSQL idempotently, so they appear in a fresh deployment without duplicating the video files.
+
+For the public demo, set the same random `API_SHARED_SECRET` on both Render services. Also set `DEMO_USERNAME` and `DEMO_PASSWORD` on the frontend service. Basic Auth protects the browser-facing site, while the shared secret prevents direct calls to the otherwise auth-disabled demo API. Leave these variables empty only for local development.
+
 ## Backup and Restore
 
 ```powershell

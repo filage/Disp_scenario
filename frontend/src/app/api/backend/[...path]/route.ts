@@ -13,6 +13,10 @@ async function proxy(
   headers.delete("host");
   headers.delete("content-length");
   headers.delete("cookie");
+  headers.delete("authorization");
+  headers.delete("x-api-shared-secret");
+  const sharedSecret = process.env.API_SHARED_SECRET;
+  if (sharedSecret) headers.set("X-API-Shared-Secret", sharedSecret);
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const hasBody = !["GET", "HEAD"].includes(request.method);
   const response = await fetch(`${apiURL}/${path.join("/")}${query}`, {
