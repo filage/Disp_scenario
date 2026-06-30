@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
+import { fetchBackend } from "@/lib/backend-fetch";
 import { currentSession } from "@/lib/session";
 
 async function proxy(
@@ -12,7 +13,6 @@ async function proxy(
   }
   const { path } = await context.params;
   const query = request.nextUrl.search;
-  const apiURL = process.env.API_URL ?? "http://localhost:8787";
   const token = (await cookies()).get("id_token")?.value;
   const headers = new Headers(request.headers);
   headers.delete("host");
@@ -26,13 +26,30 @@ async function proxy(
   headers.set("X-App-User", session.subject);
   if (token) headers.set("Authorization", `Bearer ${token}`);
   const hasBody = !["GET", "HEAD"].includes(request.method);
-  const response = await fetch(`${apiURL}/${path.join("/")}${query}`, {
-    method: request.method,
-    headers,
-    body: hasBody ? await request.arrayBuffer() : undefined,
-    redirect: "manual",
-    cache: "no-store",
-  });
+  let response: Response;
+  try {
+    response = await fetchBackend(`/${path.join("/")}${query}`, {
+      method: request.method,
+      headers,
+      body: hasBody ? await request.arrayBuffer() : undefined,
+      redirect: "manual",
+    });
+  } catch (error) {
+    console.error("[backend-proxy] request failed", {
+      method: request.method,
+      path: `/${path.join("/")}`,
+      error: String(error),
+    });
+    return NextResponse.json(
+      {
+        error: {
+          code: "API_WAKING",
+          message: "Основной API запускается. Повторите запрос через несколько секунд.",
+        },
+      },
+      { status: 503 },
+    );
+  }
   const responseHeaders = new Headers();
   for (const name of [
     "content-type",

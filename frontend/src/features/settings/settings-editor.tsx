@@ -140,34 +140,49 @@ function GeminiCredentialForm({ initial }: { initial: GeminiCredential }) {
   const [status, setStatus] = useState(initial);
   const [apiKey, setAPIKey] = useState("");
   const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [error, setError] = useState("");
 
   async function save() {
     setState("saving");
-    const response = await fetch(`${apiURL}/v1/settings/gemini-credential`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ apiKey }),
-    });
-    if (!response.ok) {
+    setError("");
+    try {
+      const response = await fetch(`${apiURL}/v1/settings/gemini-credential`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: apiKey.trim() }),
+      });
+      if (!response.ok) {
+        setError(await credentialErrorMessage(response));
+        setState("error");
+        return;
+      }
+      setStatus((await response.json()) as GeminiCredential);
+      setAPIKey("");
+      setState("saved");
+    } catch {
+      setError("Соединение с API прервалось. Подождите несколько секунд и повторите.");
       setState("error");
-      return;
     }
-    setStatus((await response.json()) as GeminiCredential);
-    setAPIKey("");
-    setState("saved");
   }
 
   async function remove() {
     setState("saving");
-    const response = await fetch(`${apiURL}/v1/settings/gemini-credential`, {
-      method: "DELETE",
-    });
-    if (!response.ok) {
+    setError("");
+    try {
+      const response = await fetch(`${apiURL}/v1/settings/gemini-credential`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        setError(await credentialErrorMessage(response));
+        setState("error");
+        return;
+      }
+      setStatus({ provider: "gemini", configured: false });
+      setState("idle");
+    } catch {
+      setError("Соединение с API прервалось. Подождите несколько секунд и повторите.");
       setState("error");
-      return;
     }
-    setStatus({ provider: "gemini", configured: false });
-    setState("idle");
   }
 
   return (
@@ -193,6 +208,7 @@ function GeminiCredentialForm({ initial }: { initial: GeminiCredential }) {
             onChange={(event) => {
               setAPIKey(event.target.value);
               setState("idle");
+              setError("");
             }}
             autoComplete="off"
             spellCheck={false}
@@ -215,7 +231,7 @@ function GeminiCredentialForm({ initial }: { initial: GeminiCredential }) {
             </button>
           ) : null}
           {state === "saved" ? <span className="text-xs text-success">Ключ сохранён</span> : null}
-          {state === "error" ? <span className="text-xs text-danger">Не удалось сохранить ключ</span> : null}
+          {state === "error" ? <span className="text-xs text-danger">{error}</span> : null}
         </div>
       </div>
       <div className="mt-7 grid gap-3 border-t border-line pt-5 text-xs leading-5 text-muted sm:grid-cols-3">
@@ -225,6 +241,31 @@ function GeminiCredentialForm({ initial }: { initial: GeminiCredential }) {
       </div>
     </div>
   );
+}
+
+async function credentialErrorMessage(response: Response) {
+  let message = "";
+  try {
+    const body = (await response.json()) as {
+      error?: string | { message?: string };
+    };
+    message =
+      typeof body.error === "string"
+        ? body.error
+        : body.error?.message ?? "";
+  } catch {
+    // The status-specific fallback below remains actionable without a JSON body.
+  }
+  if (response.status === 503) {
+    return message || "Основной API запускается. Повторите через несколько секунд.";
+  }
+  if (response.status === 401) {
+    return "Сессия завершилась. Войдите в систему заново.";
+  }
+  if (response.status === 400) {
+    return "Ключ не принят. Вставьте только значение API key из Google AI Studio.";
+  }
+  return message || `Не удалось сохранить ключ (HTTP ${response.status}).`;
 }
 
 function KnownScenarioForm({ scenario }: { scenario: KnownScenario }) {

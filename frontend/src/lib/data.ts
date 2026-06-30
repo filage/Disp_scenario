@@ -1,11 +1,7 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { fetchBackend } from "@/lib/backend-fetch";
 import { currentSession } from "@/lib/session";
-
-const serverApiUrl =
-  process.env.API_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:8787";
 
 export interface Recording {
   id: string;
@@ -43,28 +39,14 @@ export async function apiData<T>(path: string): Promise<T> {
   const token = (await cookies()).get("id_token")?.value;
   const session = await currentSession();
   const sharedSecret = process.env.API_SHARED_SECRET;
-  let response: Response | undefined;
-  for (let attempt = 0; attempt < 4; attempt += 1) {
-    try {
-      response = await fetch(`${serverApiUrl}${path}`, {
-        cache: "no-store",
-        signal: AbortSignal.timeout(15_000),
-        headers: {
-          Accept: "application/json",
-          ...(sharedSecret ? { "X-API-Shared-Secret": sharedSecret } : {}),
-          ...(session ? { "X-App-User": session.subject } : {}),
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        },
-      });
-      if (![502, 503, 504].includes(response.status)) break;
-    } catch (error) {
-      if (attempt === 3) throw error;
-    }
-    if (attempt < 3) {
-      await new Promise((resolve) => setTimeout(resolve, 600 * 2 ** attempt));
-    }
-  }
-  if (!response) throw new Error(`API unavailable: ${path}`);
+  const response = await fetchBackend(path, {
+    headers: {
+      Accept: "application/json",
+      ...(sharedSecret ? { "X-API-Shared-Secret": sharedSecret } : {}),
+      ...(session ? { "X-App-User": session.subject } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
   if (!response.ok) {
     throw new Error(`API ${response.status}: ${path}`);
   }
