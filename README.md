@@ -135,7 +135,7 @@ Before creating the Render Blueprint:
 
 Use the Backblaze S3 endpoint for both `S3_ENDPOINT` and `S3_PUBLIC_ENDPOINT`, set `S3_BUCKET` to the private bucket name, and set `S3_REGION` to the region segment from the endpoint. Set `API_URL` to the public API URL and `WEB_ORIGIN` to the public frontend URL. If Render assigns a suffixed hostname, update both values and redeploy.
 
-The Render API image applies database migrations on startup. With `SEED_DEMO_FIXTURES=true`, it validates the two canonical B2 objects and inserts their metadata into PostgreSQL idempotently, so they appear in a fresh deployment without duplicating the video files.
+The Render API image applies database migrations on startup. With `SEED_DEMO_FIXTURES=true`, it validates the five canonical B2 objects and synchronizes their metadata in PostgreSQL, so the deployed demo contains exactly the current fixture set without duplicating video files. Stale `demo_fixture` rows are removed; user uploads are preserved.
 
 For the public demo, set the same random `API_SHARED_SECRET` on both Render services. Set `DEMO_USERNAME`, `DEMO_PASSWORD`, and a random `AUTH_SESSION_SECRET` on the frontend service. The frontend shows its own login page and stores a signed HttpOnly session; the shared secret prevents direct calls to the otherwise auth-disabled demo API. Set a separate random `CREDENTIALS_ENCRYPTION_KEY` on the API service so personal Gemini keys remain decryptable across deployments and shared workers.
 

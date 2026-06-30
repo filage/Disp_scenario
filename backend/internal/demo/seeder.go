@@ -61,7 +61,17 @@ func SeedFixtures(
 				video.ObjectKey, video.SizeBytes, info.Size,
 			)
 		}
-		result, err := pool.Exec(ctx, `
+	}
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin demo fixture sync: %w", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	objectKeys := make([]string, 0, len(fixtures.Videos))
+	for _, video := range fixtures.Videos {
+		objectKeys = append(objectKeys, video.ObjectKey)
+		result, err := tx.Exec(ctx, `
 			INSERT INTO recordings (
 				organization_id, original_name, mime_type, size_bytes, duration_sec,
 				status, source, object_key, checksum_sha256, created_by, updated_by
@@ -81,6 +91,22 @@ func SeedFixtures(
 		if result.RowsAffected() > 0 {
 			logger.Info("demo fixture seeded", "file", video.File, "object_key", video.ObjectKey)
 		}
+	}
+	removed, err := tx.Exec(ctx, `
+		DELETE FROM recordings
+		WHERE organization_id=$1
+		  AND source='demo_fixture'
+		  AND NOT (object_key = ANY($2::text[]))`,
+		platform.LocalOrganizationID, objectKeys,
+	)
+	if err != nil {
+		return fmt.Errorf("remove stale demo fixtures: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit demo fixture sync: %w", err)
+	}
+	if removed.RowsAffected() > 0 {
+		logger.Info("stale demo fixtures removed", "count", removed.RowsAffected())
 	}
 	return nil
 }
