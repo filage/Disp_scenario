@@ -228,12 +228,12 @@ func (s *Service) Renormalize(ctx context.Context, recordingID uuid.UUID) (map[s
 	return s.Rebuild(ctx, recordingID)
 }
 
-func (s *Service) AddBoundaryReviewIssue(ctx context.Context, recordingID uuid.UUID) (map[string]any, error) {
+func (s *Service) AddBoundaryReviewIssue(ctx context.Context, recordingID uuid.UUID, geminiAPIKey string) (map[string]any, error) {
 	run, err := s.latestRun(ctx, recordingID)
 	if err != nil {
 		return nil, err
 	}
-	review, reviewErr := s.reviewBoundaries(ctx, recordingID)
+	review, reviewErr := s.reviewBoundaries(ctx, recordingID, geminiAPIKey)
 	if reviewErr != nil {
 		review = boundaryReview{
 			Warnings: []boundaryWarning{{

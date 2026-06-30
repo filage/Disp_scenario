@@ -36,7 +36,15 @@ export type SettingsData = {
   dataQualityFlags: string[];
 };
 
+export type GeminiCredential = {
+  provider: string;
+  configured: boolean;
+  lastFour?: string;
+  updatedAt?: string;
+};
+
 const tabs = [
+  ["gemini", "Gemini API"],
   ["known", "Известные сценарии"],
   ["prompts", "Промпты"],
   ["boundary", "Правила границ"],
@@ -46,8 +54,14 @@ const tabs = [
 
 const apiURL = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
 
-export function SettingsEditor({ settings }: { settings: SettingsData }) {
-  const [active, setActive] = useState<(typeof tabs)[number][0]>("known");
+export function SettingsEditor({
+  settings,
+  geminiCredential,
+}: {
+  settings: SettingsData;
+  geminiCredential: GeminiCredential;
+}) {
+  const [active, setActive] = useState<(typeof tabs)[number][0]>("gemini");
 
   return (
     <div className="mt-6 grid gap-4 xl:grid-cols-[15rem_minmax(0,1fr)]">
@@ -69,6 +83,9 @@ export function SettingsEditor({ settings }: { settings: SettingsData }) {
       </nav>
 
       <section className="border border-line bg-panel p-5">
+        {active === "gemini" ? (
+          <GeminiCredentialForm initial={geminiCredential} />
+        ) : null}
         {active === "known" ? (
           <div className="grid gap-4">
             <div className="border-l-2 border-accent bg-accent-soft px-4 py-3 text-xs leading-5 text-muted">
@@ -115,6 +132,97 @@ export function SettingsEditor({ settings }: { settings: SettingsData }) {
           />
         ) : null}
       </section>
+    </div>
+  );
+}
+
+function GeminiCredentialForm({ initial }: { initial: GeminiCredential }) {
+  const [status, setStatus] = useState(initial);
+  const [apiKey, setAPIKey] = useState("");
+  const [state, setState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+
+  async function save() {
+    setState("saving");
+    const response = await fetch(`${apiURL}/v1/settings/gemini-credential`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ apiKey }),
+    });
+    if (!response.ok) {
+      setState("error");
+      return;
+    }
+    setStatus((await response.json()) as GeminiCredential);
+    setAPIKey("");
+    setState("saved");
+  }
+
+  async function remove() {
+    setState("saving");
+    const response = await fetch(`${apiURL}/v1/settings/gemini-credential`, {
+      method: "DELETE",
+    });
+    if (!response.ok) {
+      setState("error");
+      return;
+    }
+    setStatus({ provider: "gemini", configured: false });
+    setState("idle");
+  }
+
+  return (
+    <div className="max-w-3xl">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-5">
+        <div>
+          <p className="font-mono text-[10px] uppercase tracking-[0.16em] text-accent">Личный провайдер</p>
+          <h2 className="mt-2 text-lg font-semibold">Gemini API key</h2>
+          <p className="mt-2 max-w-xl text-xs leading-5 text-muted">
+            Ключ используется только для ваших новых запусков анализа. Он шифруется на сервере и после сохранения больше не показывается.
+          </p>
+        </div>
+        <span className={`border px-3 py-2 text-[10px] uppercase ${status.configured ? "border-success/30 bg-success/5 text-success" : "border-warning/30 bg-warning/5 text-warning"}`}>
+          {status.configured ? `Подключён · ••••${status.lastFour}` : "Не настроен"}
+        </span>
+      </div>
+      <div className="mt-6 grid gap-4">
+        <label className="grid gap-2 text-xs text-muted">
+          Новый API key
+          <input
+            type="password"
+            value={apiKey}
+            onChange={(event) => {
+              setAPIKey(event.target.value);
+              setState("idle");
+            }}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="AIza…"
+            className="h-11 border border-line bg-background px-3 font-mono text-sm text-foreground"
+          />
+        </label>
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            disabled={state === "saving" || apiKey.trim().length < 20}
+            onClick={save}
+            className="bg-accent px-4 py-2.5 text-xs font-semibold text-white disabled:opacity-40"
+          >
+            {state === "saving" ? "Сохраняем…" : status.configured ? "Заменить ключ" : "Сохранить ключ"}
+          </button>
+          {status.configured ? (
+            <button type="button" disabled={state === "saving"} onClick={remove} className="border border-line px-4 py-2.5 text-xs text-muted hover:border-danger hover:text-danger">
+              Удалить ключ
+            </button>
+          ) : null}
+          {state === "saved" ? <span className="text-xs text-success">Ключ сохранён</span> : null}
+          {state === "error" ? <span className="text-xs text-danger">Не удалось сохранить ключ</span> : null}
+        </div>
+      </div>
+      <div className="mt-7 grid gap-3 border-t border-line pt-5 text-xs leading-5 text-muted sm:grid-cols-3">
+        <p><strong className="block text-foreground">Где взять</strong>Google AI Studio → API keys.</p>
+        <p><strong className="block text-foreground">Где хранится</strong>PostgreSQL, AES-256-GCM.</p>
+        <p><strong className="block text-foreground">Кто использует</strong>Только запуски вашей сессии.</p>
+      </div>
     </div>
   );
 }

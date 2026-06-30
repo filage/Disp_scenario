@@ -21,6 +21,7 @@ import (
 	"github.com/example/dispscenario-analyst-v2/internal/analysis"
 	"github.com/example/dispscenario-analyst-v2/internal/artifacts"
 	authn "github.com/example/dispscenario-analyst-v2/internal/auth"
+	"github.com/example/dispscenario-analyst-v2/internal/credentials"
 	"github.com/example/dispscenario-analyst-v2/internal/observability"
 	"github.com/example/dispscenario-analyst-v2/internal/platform"
 	"github.com/example/dispscenario-analyst-v2/internal/recording"
@@ -34,6 +35,7 @@ type Server struct {
 	pool         *pgxpool.Pool
 	recordings   *recording.Repository
 	analysis     *analysis.Service
+	credentials  *credentials.Store
 	artifacts    *artifacts.Service
 	auth         *authn.Middleware
 	storage      *storage.Storage
@@ -47,6 +49,7 @@ func New(
 	pool *pgxpool.Pool,
 	recordings *recording.Repository,
 	analysisService *analysis.Service,
+	credentialStore *credentials.Store,
 	artifactService *artifacts.Service,
 	authMiddleware *authn.Middleware,
 	objectStorage *storage.Storage,
@@ -57,7 +60,8 @@ func New(
 ) *Server {
 	server := &Server{
 		pool: pool, recordings: recordings, analysis: analysisService,
-		artifacts: artifactService, auth: authMiddleware,
+		credentials: credentialStore,
+		artifacts:   artifactService, auth: authMiddleware,
 		storage: objectStorage, redis: redisClient, sharedSecret: sharedSecret,
 		logger: logger, webOrigin: webOrigin,
 	}
@@ -114,6 +118,9 @@ func (s *Server) routes() chi.Router {
 		router.Get("/reports/{reportID}", s.report)
 		router.Post("/ground-truth/import", s.auth.Require("analyst", s.importGroundTruth))
 		router.Get("/settings", s.settings)
+		router.Get("/settings/gemini-credential", s.geminiCredentialStatus)
+		router.Put("/settings/gemini-credential", s.auth.Require("analyst", s.saveGeminiCredential))
+		router.Delete("/settings/gemini-credential", s.auth.Require("analyst", s.deleteGeminiCredential))
 		router.Patch("/settings/known-scenarios/{code}", s.auth.Require("admin", s.patchKnownScenario))
 		router.Patch("/settings/boundary-rules/{ruleID}", s.auth.Require("admin", s.patchBoundaryRule))
 	})
@@ -308,12 +315,76 @@ func (s *Server) createAnalysisRun(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusConflict, "recording is not ready for analysis")
 		return
 	}
+	if !s.requireGeminiCredential(w, r) {
+		return
+	}
 	run, err := s.analysis.Create(r.Context(), platform.LocalOrganizationID, id, authn.Actor(r.Context()))
 	if err != nil {
 		s.fail(w, r, err)
 		return
 	}
 	writeJSON(w, http.StatusAccepted, run)
+}
+
+func (s *Server) requireGeminiCredential(w http.ResponseWriter, r *http.Request) bool {
+	_, ok := s.resolveGeminiCredential(w, r)
+	return ok
+}
+
+func (s *Server) resolveGeminiCredential(w http.ResponseWriter, r *http.Request) (string, bool) {
+	apiKey, err := s.credentials.Resolve(
+		r.Context(), platform.LocalOrganizationID, authn.Actor(r.Context()), "gemini",
+	)
+	if err != nil {
+		if errors.Is(err, credentials.ErrNotFound) {
+			writeError(w, http.StatusConflict, "configure your Gemini API key in settings before starting analysis")
+			return "", false
+		}
+		s.fail(w, r, err)
+		return "", false
+	}
+	return apiKey, true
+}
+
+type saveGeminiCredentialRequest struct {
+	APIKey string `json:"apiKey"`
+}
+
+func (s *Server) geminiCredentialStatus(w http.ResponseWriter, r *http.Request) {
+	status, err := s.credentials.GetStatus(
+		r.Context(), platform.LocalOrganizationID, authn.Actor(r.Context()), "gemini",
+	)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, status)
+}
+
+func (s *Server) saveGeminiCredential(w http.ResponseWriter, r *http.Request) {
+	var input saveGeminiCredentialRequest
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+	status, err := s.credentials.Upsert(
+		r.Context(), platform.LocalOrganizationID, authn.Actor(r.Context()), "gemini", input.APIKey,
+	)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "invalid Gemini API key")
+		return
+	}
+	writeJSON(w, http.StatusOK, status)
+}
+
+func (s *Server) deleteGeminiCredential(w http.ResponseWriter, r *http.Request) {
+	if err := s.credentials.Delete(
+		r.Context(), platform.LocalOrganizationID, authn.Actor(r.Context()), "gemini",
+	); err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) listAnalysisRuns(w http.ResponseWriter, r *http.Request) {

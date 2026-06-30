@@ -1,30 +1,23 @@
-import { timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
-
-function matches(left: string, right: string) {
-  const leftBytes = Buffer.from(left);
-  const rightBytes = Buffer.from(right);
-  return (
-    leftBytes.length === rightBytes.length &&
-    timingSafeEqual(leftBytes, rightBytes)
-  );
-}
+import {
+  localAuthEnabled,
+  sessionCookieName,
+  verifySession,
+} from "@/lib/session-core";
 
 export function proxy(request: NextRequest) {
-  const username = process.env.DEMO_USERNAME;
-  const password = process.env.DEMO_PASSWORD;
-  if (!username || !password) return NextResponse.next();
-
-  const expected = `Basic ${Buffer.from(`${username}:${password}`).toString("base64")}`;
-  const provided = request.headers.get("authorization") ?? "";
-  if (matches(provided, expected)) return NextResponse.next();
-
-  return NextResponse.rewrite(new URL("/api/auth-required", request.url));
+  if (!localAuthEnabled()) return NextResponse.next();
+  const session = verifySession(request.cookies.get(sessionCookieName)?.value);
+  if (session || request.cookies.get("id_token")?.value) return NextResponse.next();
+  if (request.nextUrl.pathname.startsWith("/api/backend")) {
+    return NextResponse.json({ error: "authentication required" }, { status: 401 });
+  }
+  return NextResponse.redirect(new URL("/login", request.url));
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|robots.txt|api/auth-required|api/health).*)",
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|login|api/auth|api/session|api/health).*)",
   ],
 };

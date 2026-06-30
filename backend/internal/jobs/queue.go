@@ -18,6 +18,7 @@ type AnalysisPayload struct {
 	AnalysisRunID string `json:"analysisRunId"`
 	RecordingID   string `json:"recordingId"`
 	CorrelationID string `json:"correlationId"`
+	RequestedBy   string `json:"requestedBy"`
 }
 
 func DecodeAnalysisPayload(payload json.RawMessage) (AnalysisPayload, error) {

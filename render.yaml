@@ -40,6 +40,8 @@ services:
         sync: false
       - key: GEMINI_API_KEY
         sync: false
+      - key: CREDENTIALS_ENCRYPTION_KEY
+        sync: false
       - key: S3_ENDPOINT
         sync: false
       - key: S3_PUBLIC_ENDPOINT
@@ -74,4 +76,6 @@ services:
       - key: DEMO_USERNAME
         sync: false
       - key: DEMO_PASSWORD
+        sync: false
+      - key: AUTH_SESSION_SECRET
         sync: false

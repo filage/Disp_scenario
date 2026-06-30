@@ -96,6 +96,8 @@ services:
       S3_BUCKET: analyst-recordings
       S3_USE_SSL: "false"
       AUTH_DISABLED: "true"
+      API_SHARED_SECRET: ${API_SHARED_SECRET:-local-api-shared-secret}
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY:-local-credential-encryption-key}
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY must be set in .env}
@@ -134,6 +136,7 @@ services:
       S3_BUCKET: analyst-recordings
       S3_USE_SSL: "false"
       AUTH_DISABLED: "true"
+      CREDENTIALS_ENCRYPTION_KEY: ${CREDENTIALS_ENCRYPTION_KEY:-local-credential-encryption-key}
       WORKER_METRICS_ADDR: ":9091"
       GEMINI_API_KEY: ${GEMINI_API_KEY:?GEMINI_API_KEY must be set in .env}
       GEMINI_MODEL: ${GEMINI_MODEL:?GEMINI_MODEL must be set in .env}
@@ -156,11 +159,15 @@ services:
         NEXT_PUBLIC_API_URL: /api/backend
     environment:
       API_URL: http://api:8787
+      API_SHARED_SECRET: ${API_SHARED_SECRET:-local-api-shared-secret}
       NEXT_PUBLIC_API_URL: /api/backend
       APP_URL: http://localhost:3000
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
+      DEMO_USERNAME: ${DEMO_USERNAME:-demo}
+      DEMO_PASSWORD: ${DEMO_PASSWORD:-demo}
+      AUTH_SESSION_SECRET: ${AUTH_SESSION_SECRET:-local-frontend-session-secret}
     ports:
       - "3000:3000"
     depends_on:

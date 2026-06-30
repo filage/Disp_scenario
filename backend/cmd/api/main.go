@@ -17,6 +17,7 @@ import (
 	"github.com/example/dispscenario-analyst-v2/internal/artifacts"
 	authn "github.com/example/dispscenario-analyst-v2/internal/auth"
 	"github.com/example/dispscenario-analyst-v2/internal/config"
+	"github.com/example/dispscenario-analyst-v2/internal/credentials"
 	"github.com/example/dispscenario-analyst-v2/internal/database"
 	"github.com/example/dispscenario-analyst-v2/internal/demo"
 	"github.com/example/dispscenario-analyst-v2/internal/httpserver"
@@ -49,6 +50,18 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
+	credentialSecret := cfg.CredentialSecret
+	if credentialSecret == "" {
+		credentialSecret = cfg.APISharedSecret
+	}
+	if credentialSecret == "" {
+		credentialSecret = cfg.GeminiAPIKey
+	}
+	credentialStore, err := credentials.NewStore(pool, credentialSecret)
+	if err != nil {
+		logger.Error("credential storage initialization failed", "error", err)
+		os.Exit(1)
+	}
 
 	objectStorage, err := storage.New(
 		cfg.S3Endpoint, cfg.S3PublicEndpoint, cfg.S3AccessKey,
@@ -110,7 +123,9 @@ func main() {
 			vision.GeminiProvider{APIKey: cfg.GeminiAPIKey, Model: cfg.GeminiModel},
 			logger,
 		)
-		processor := jobs.NewProcessor(pool, analysisPipeline, logger, "gemini")
+		processor := jobs.NewProcessorWithCredentials(
+			pool, analysisPipeline, logger, "gemini", cfg.GeminiModel, credentialStore,
+		)
 		runner := jobs.NewPostgresRunner(pool, processor, logger)
 		go func() {
 			if err := runner.Run(ctx); err != nil && !errors.Is(err, context.Canceled) {
@@ -128,6 +143,7 @@ func main() {
 		pool,
 		recording.NewRepository(pool),
 		analysis.NewService(pool, "gemini", cfg.GeminiModel),
+		credentialStore,
 		artifacts.New(pool, cfg.GeminiAPIKey, cfg.GeminiModel),
 		authMiddleware,
 		objectStorage,

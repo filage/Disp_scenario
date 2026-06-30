@@ -31,6 +31,7 @@ type Config struct {
 	OIDCClientID        string
 	GeminiAPIKey        string
 	GeminiModel         string
+	CredentialSecret    string
 	SeedDemoFixtures    bool
 	DemoFixtureManifest string
 }
@@ -93,6 +94,7 @@ func Load() (Config, error) {
 		OIDCClientID:        os.Getenv("OIDC_CLIENT_ID"),
 		GeminiAPIKey:        os.Getenv("GEMINI_API_KEY"),
 		GeminiModel:         value("GEMINI_MODEL", "gemini-3.5-flash"),
+		CredentialSecret:    os.Getenv("CREDENTIALS_ENCRYPTION_KEY"),
 		SeedDemoFixtures:    seedDemoFixtures,
 		DemoFixtureManifest: os.Getenv("DEMO_FIXTURE_MANIFEST"),
 	}

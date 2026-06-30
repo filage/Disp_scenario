@@ -83,11 +83,12 @@ func (r *PostgresRunner) runOne(ctx context.Context) (bool, error) {
 			FOR UPDATE SKIP LOCKED
 		)
 		RETURNING id::text, analysis_run_id::text, recording_id::text,
-		          COALESCE(correlation_id, '')`, r.maxAttempts).Scan(
+		          COALESCE(correlation_id, ''), COALESCE(requested_by, '')`, r.maxAttempts).Scan(
 		&payload.JobID,
 		&payload.AnalysisRunID,
 		&payload.RecordingID,
 		&payload.CorrelationID,
+		&payload.RequestedBy,
 	)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return false, nil

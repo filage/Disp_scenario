@@ -121,8 +121,11 @@ func absInt(value int) int {
 	return value
 }
 
-func (s *Service) reviewBoundaries(ctx context.Context, recordingID uuid.UUID) (boundaryReview, error) {
-	if s.geminiAPIKey == "" {
+func (s *Service) reviewBoundaries(ctx context.Context, recordingID uuid.UUID, geminiAPIKey string) (boundaryReview, error) {
+	if geminiAPIKey == "" {
+		geminiAPIKey = s.geminiAPIKey
+	}
+	if geminiAPIKey == "" {
 		return boundaryReview{}, fmt.Errorf("GEMINI_API_KEY is not configured")
 	}
 	rawEvents, err := s.RawEvents(ctx, recordingID)
@@ -193,7 +196,7 @@ Do not rewrite events. Keep timestamps in milliseconds. Input: ` + string(input)
 		"https://generativelanguage.googleapis.com/v1beta/models/"+model+":generateContent",
 		bytes.NewReader(payload),
 	)
-	request.Header.Set("x-goog-api-key", s.geminiAPIKey)
+	request.Header.Set("x-goog-api-key", geminiAPIKey)
 	request.Header.Set("Content-Type", "application/json")
 	client := &http.Client{Timeout: 2 * time.Minute}
 	response, err := client.Do(request)

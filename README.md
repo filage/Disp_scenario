@@ -52,7 +52,7 @@ Services:
 - Prometheus: `http://localhost:9090`
 - Grafana: `http://localhost:3001` (`admin` / `analyst`)
 
-`GEMINI_API_KEY` is required for the API and worker. The model is configured with `GEMINI_MODEL`.
+`GEMINI_API_KEY` remains the server fallback used by maintenance operations. Each user saves a personal Gemini key in the application settings before starting a new video analysis. Personal keys are encrypted in PostgreSQL with `CREDENTIALS_ENCRYPTION_KEY` (or, if omitted, the server derives the encryption key from `API_SHARED_SECRET`). The model is configured with `GEMINI_MODEL`.
 
 ## Development
 
@@ -137,7 +137,7 @@ Use the Backblaze S3 endpoint for both `S3_ENDPOINT` and `S3_PUBLIC_ENDPOINT`, s
 
 The Render API image applies database migrations on startup. With `SEED_DEMO_FIXTURES=true`, it validates the two canonical B2 objects and inserts their metadata into PostgreSQL idempotently, so they appear in a fresh deployment without duplicating the video files.
 
-For the public demo, set the same random `API_SHARED_SECRET` on both Render services. Also set `DEMO_USERNAME` and `DEMO_PASSWORD` on the frontend service. Basic Auth protects the browser-facing site, while the shared secret prevents direct calls to the otherwise auth-disabled demo API. Leave these variables empty only for local development.
+For the public demo, set the same random `API_SHARED_SECRET` on both Render services. Set `DEMO_USERNAME`, `DEMO_PASSWORD`, and a random `AUTH_SESSION_SECRET` on the frontend service. The frontend shows its own login page and stores a signed HttpOnly session; the shared secret prevents direct calls to the otherwise auth-disabled demo API. Set a separate random `CREDENTIALS_ENCRYPTION_KEY` on the API service so personal Gemini keys remain decryptable across deployments and shared workers.
 
 ## Backup and Restore
 

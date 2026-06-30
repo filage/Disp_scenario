@@ -27,6 +27,7 @@ type Job struct {
 	AnalysisRunID uuid.UUID
 	RecordingID   uuid.UUID
 	CorrelationID string
+	Provider      vision.Provider
 }
 
 type Service struct {
@@ -81,7 +82,11 @@ func (s *Service) Process(ctx context.Context, job Job) error {
 		return err
 	}
 	geminiStarted := time.Now()
-	extraction, err := s.provider.Extract(ctx, job.AnalysisRunID, videoPath, metadata)
+	provider := job.Provider
+	if provider == nil {
+		provider = s.provider
+	}
+	extraction, err := provider.Extract(ctx, job.AnalysisRunID, videoPath, metadata)
 	observability.ObserveDependency("gemini", "extract_video", geminiStarted, err)
 	if err != nil {
 		if persistErr := s.persistRunUsage(ctx, job.AnalysisRunID, extraction); persistErr != nil {

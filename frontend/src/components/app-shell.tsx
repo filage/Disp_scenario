@@ -1,12 +1,10 @@
-import { Database, RadioTower } from "lucide-react";
-import { cookies } from "next/headers";
+import { Database, LogOut, RadioTower } from "lucide-react";
 import { Navigation } from "@/components/navigation";
 import { TopBar } from "@/components/top-bar";
-import { oidcEnabled } from "@/lib/oidc";
+import { currentSession } from "@/lib/session";
 
 export async function AppShell({ children }: { children: React.ReactNode }) {
-  const authEnabled = oidcEnabled();
-  const signedIn = Boolean((await cookies()).get("id_token")?.value);
+  const session = await currentSession();
   return (
     <div className="min-h-[100dvh] bg-background lg:grid lg:grid-cols-[240px_minmax(0,1fr)]">
       <aside className="border-line bg-panel border-b lg:sticky lg:top-0 lg:flex lg:h-[100dvh] lg:flex-col lg:border-r lg:border-b-0">
@@ -35,13 +33,16 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
               <RadioTower size={12} /> WORKER
             </span>
           </div>
-          {authEnabled ? (
-            <a
-              href={signedIn ? "/api/auth/logout" : "/api/auth/login"}
-              className="mt-4 block rounded-sm border border-line px-3 py-2 text-center text-[11px] text-muted hover:border-accent hover:text-accent"
-            >
-              {signedIn ? "Выйти" : "Войти"}
-            </a>
+          {session ? (
+            <form action="/api/session/logout" method="post" className="mt-4">
+              <button
+                type="submit"
+                className="flex w-full items-center justify-between border border-line px-3 py-2 text-left text-[11px] text-muted hover:border-accent hover:text-accent"
+              >
+                <span className="min-w-0 truncate">{session.subject}</span>
+                <LogOut size={13} aria-label="Выйти" />
+              </button>
+            </form>
           ) : null}
         </div>
       </aside>

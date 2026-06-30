@@ -104,9 +104,9 @@ func (s *Service) createInTx(
 	_, err = tx.Exec(ctx, `
 		INSERT INTO analysis_jobs (
 			id, organization_id, recording_id, analysis_run_id, idempotency_key,
-			correlation_id
-		) VALUES ($1, $2, $3, $4, $5, $6)`,
-		jobID, organizationID, recordingID, run.ID, idempotencyKey, nullString(correlationID))
+			correlation_id, requested_by
+		) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+		jobID, organizationID, recordingID, run.ID, idempotencyKey, nullString(correlationID), actor)
 	if err != nil {
 		return Run{}, err
 	}
@@ -116,6 +116,7 @@ func (s *Service) createInTx(
 		"analysisRunId": run.ID.String(),
 		"recordingId":   recordingID.String(),
 		"correlationId": correlationID,
+		"requestedBy":   actor,
 	})
 	if err != nil {
 		return Run{}, err

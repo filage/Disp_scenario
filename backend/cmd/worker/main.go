@@ -14,6 +14,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 
 	"github.com/example/dispscenario-analyst-v2/internal/config"
+	"github.com/example/dispscenario-analyst-v2/internal/credentials"
 	"github.com/example/dispscenario-analyst-v2/internal/database"
 	"github.com/example/dispscenario-analyst-v2/internal/jobs"
 	"github.com/example/dispscenario-analyst-v2/internal/pipeline"
@@ -42,6 +43,18 @@ func main() {
 		os.Exit(1)
 	}
 	defer pool.Close()
+	credentialSecret := cfg.CredentialSecret
+	if credentialSecret == "" {
+		credentialSecret = cfg.APISharedSecret
+	}
+	if credentialSecret == "" {
+		credentialSecret = cfg.GeminiAPIKey
+	}
+	credentialStore, err := credentials.NewStore(pool, credentialSecret)
+	if err != nil {
+		logger.Error("credential storage initialization failed", "error", err)
+		os.Exit(1)
+	}
 
 	objectStorage, err := storage.New(
 		cfg.S3Endpoint, cfg.S3PublicEndpoint, cfg.S3AccessKey,
@@ -57,7 +70,9 @@ func main() {
 	}
 	const providerName = "gemini"
 	pipelineService := pipeline.NewService(pool, objectStorage, provider, logger)
-	processor := jobs.NewProcessor(pool, pipelineService, logger, providerName)
+	processor := jobs.NewProcessorWithCredentials(
+		pool, pipelineService, logger, providerName, cfg.GeminiModel, credentialStore,
+	)
 	metricsServer := &http.Server{
 		Addr: cfg.WorkerMetricsAddr, Handler: promhttp.Handler(),
 		ReadHeaderTimeout: 5 * time.Second,

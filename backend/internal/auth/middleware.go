@@ -39,8 +39,12 @@ func New(ctx context.Context, disabled bool, issuer, clientID string) (*Middlewa
 func (m *Middleware) Authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if m.disabled {
+			subject := strings.TrimSpace(r.Header.Get("X-App-User"))
+			if subject == "" || len(subject) > 200 || strings.ContainsAny(subject, "\r\n") {
+				subject = "local-user"
+			}
 			principal := Principal{
-				Subject: "local-user", Email: "local@development",
+				Subject: subject, Email: "local@development",
 				Roles: []string{"admin", "analyst", "viewer"},
 			}
 			next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), contextKey{}, principal)))

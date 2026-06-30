@@ -14,6 +14,8 @@ import (
 
 	"github.com/example/dispscenario-analyst-v2/internal/observability"
 	"github.com/example/dispscenario-analyst-v2/internal/pipeline"
+	"github.com/example/dispscenario-analyst-v2/internal/platform"
+	"github.com/example/dispscenario-analyst-v2/internal/vision"
 )
 
 type AnalysisPipeline interface {
@@ -21,10 +23,16 @@ type AnalysisPipeline interface {
 }
 
 type Processor struct {
-	pool         *pgxpool.Pool
-	pipeline     AnalysisPipeline
-	logger       *slog.Logger
-	providerName string
+	pool          *pgxpool.Pool
+	pipeline      AnalysisPipeline
+	logger        *slog.Logger
+	providerName  string
+	credentials   CredentialResolver
+	providerModel string
+}
+
+type CredentialResolver interface {
+	Resolve(context.Context, uuid.UUID, string, string) (string, error)
 }
 
 func NewProcessor(
@@ -36,6 +44,19 @@ func NewProcessor(
 	return &Processor{
 		pool: pool, pipeline: analysisPipeline, logger: logger, providerName: providerName,
 	}
+}
+
+func NewProcessorWithCredentials(
+	pool *pgxpool.Pool,
+	analysisPipeline AnalysisPipeline,
+	logger *slog.Logger,
+	providerName, providerModel string,
+	credentials CredentialResolver,
+) *Processor {
+	processor := NewProcessor(pool, analysisPipeline, logger, providerName)
+	processor.credentials = credentials
+	processor.providerModel = providerModel
+	return processor
 }
 
 func (p *Processor) Process(ctx context.Context, raw json.RawMessage) error {
@@ -115,10 +136,24 @@ func (p *Processor) Process(ctx context.Context, raw json.RawMessage) error {
 		return err
 	}
 
-	err = p.pipeline.Process(ctx, pipeline.Job{
-		ID: jobID, AnalysisRunID: runID, RecordingID: recordingID,
-		CorrelationID: payload.CorrelationID,
-	})
+	var provider vision.Provider
+	if p.credentials != nil && payload.RequestedBy != "" {
+		apiKey, resolveErr := p.credentials.Resolve(
+			ctx, platform.LocalOrganizationID, payload.RequestedBy, p.providerName,
+		)
+		if resolveErr != nil {
+			err = fmt.Errorf("load %s credential for %s: %w", p.providerName, payload.RequestedBy, resolveErr)
+		} else {
+			provider = vision.GeminiProvider{APIKey: apiKey, Model: p.providerModel}
+		}
+	}
+	if err == nil {
+		err = p.pipeline.Process(ctx, pipeline.Job{
+			ID: jobID, AnalysisRunID: runID, RecordingID: recordingID,
+			CorrelationID: payload.CorrelationID,
+			Provider:      provider,
+		})
+	}
 	if err != nil {
 		_, _ = p.pool.Exec(ctx, `
 			UPDATE analysis_jobs

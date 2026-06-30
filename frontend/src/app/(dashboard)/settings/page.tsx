@@ -1,6 +1,7 @@
 import { PageFrame } from "@/components/page-frame";
 import {
   SettingsEditor,
+  type GeminiCredential,
   type SettingsData,
 } from "@/features/settings/settings-editor";
 import { apiData } from "@/lib/data";
@@ -8,13 +9,19 @@ import { apiData } from "@/lib/data";
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const settings = await apiData<SettingsData>("/v1/settings").catch(() => ({
-    versions: {},
-    knownScenarios: [],
-    boundaryRules: [],
-    actionCatalog: [],
-    dataQualityFlags: [],
-  }));
+  const [settings, geminiCredential] = await Promise.all([
+    apiData<SettingsData>("/v1/settings").catch(() => ({
+      versions: {},
+      knownScenarios: [],
+      boundaryRules: [],
+      actionCatalog: [],
+      dataQualityFlags: [],
+    })),
+    apiData<GeminiCredential>("/v1/settings/gemini-credential").catch(() => ({
+      provider: "gemini",
+      configured: false,
+    })),
+  ]);
 
   return (
     <PageFrame
@@ -22,7 +29,7 @@ export default async function SettingsPage() {
       title="Настройки системы"
       description="Редактирование известных сценариев и правил границ, версии промптов, каталог канонических действий и флаги качества данных."
     >
-      <SettingsEditor settings={settings} />
+      <SettingsEditor settings={settings} geminiCredential={geminiCredential} />
     </PageFrame>
   );
 }

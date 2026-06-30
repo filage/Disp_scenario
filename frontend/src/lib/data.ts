@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { currentSession } from "@/lib/session";
 
 const serverApiUrl =
   process.env.API_URL ??
@@ -40,13 +41,30 @@ export interface AnalysisRun {
 
 export async function apiData<T>(path: string): Promise<T> {
   const token = (await cookies()).get("id_token")?.value;
-  const response = await fetch(`${serverApiUrl}${path}`, {
-    cache: "no-store",
-    headers: {
-      Accept: "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
+  const session = await currentSession();
+  const sharedSecret = process.env.API_SHARED_SECRET;
+  let response: Response | undefined;
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    try {
+      response = await fetch(`${serverApiUrl}${path}`, {
+        cache: "no-store",
+        signal: AbortSignal.timeout(15_000),
+        headers: {
+          Accept: "application/json",
+          ...(sharedSecret ? { "X-API-Shared-Secret": sharedSecret } : {}),
+          ...(session ? { "X-App-User": session.subject } : {}),
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (![502, 503, 504].includes(response.status)) break;
+    } catch (error) {
+      if (attempt === 3) throw error;
+    }
+    if (attempt < 3) {
+      await new Promise((resolve) => setTimeout(resolve, 600 * 2 ** attempt));
+    }
+  }
+  if (!response) throw new Error(`API unavailable: ${path}`);
   if (!response.ok) {
     throw new Error(`API ${response.status}: ${path}`);
   }

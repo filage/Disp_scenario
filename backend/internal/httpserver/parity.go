@@ -140,6 +140,9 @@ func (s *Server) retryAnalysisRun(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
+	if !s.requireGeminiCredential(w, r) {
+		return
+	}
 	item, err := s.analysis.Retry(r.Context(), platform.LocalOrganizationID, id, authn.Actor(r.Context()))
 	if err != nil {
 		s.artifactError(w, r, err)
@@ -192,7 +195,11 @@ func (s *Server) boundaryReview(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	bundle, err := s.artifacts.AddBoundaryReviewIssue(r.Context(), id)
+	apiKey, ok := s.resolveGeminiCredential(w, r)
+	if !ok {
+		return
+	}
+	bundle, err := s.artifacts.AddBoundaryReviewIssue(r.Context(), id, apiKey)
 	if err != nil {
 		s.artifactError(w, r, err)
 		return
