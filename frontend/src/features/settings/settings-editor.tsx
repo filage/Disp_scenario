@@ -71,6 +71,12 @@ export function SettingsEditor({ settings }: { settings: SettingsData }) {
       <section className="border border-line bg-panel p-5">
         {active === "known" ? (
           <div className="grid gap-4">
+            <div className="border-l-2 border-accent bg-accent-soft px-4 py-3 text-xs leading-5 text-muted">
+              Здесь администратор может изменять и отключать уже
+              зарегистрированные сценарии. Создание нового сценария через
+              интерфейс пока не реализовано: для него нужны новая запись в
+              каталоге и правила распознавания на backend.
+            </div>
             {settings.knownScenarios.map((scenario) => (
               <KnownScenarioForm key={scenario.code} scenario={scenario} />
             ))}
@@ -369,7 +375,9 @@ function FormActions({
       ) : null}
       {state === "error" || state === "invalid-json" ? (
         <span className="text-xs text-danger">
-          {state === "invalid-json" ? "Некорректный JSON" : "Не удалось сохранить"}
+          {state === "invalid-json"
+            ? "Некорректный JSON"
+            : "Не удалось сохранить"}
         </span>
       ) : null}
     </div>

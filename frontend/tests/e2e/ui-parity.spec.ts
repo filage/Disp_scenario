@@ -5,6 +5,7 @@ const routes = [
   "/recordings",
   "/runs",
   "/timeline",
+  "/guide",
   "/scenario-map",
   "/groups",
   "/qa",
@@ -38,7 +39,9 @@ for (const viewport of viewports) {
         await page.goto(route);
         await page.waitForLoadState("networkidle");
 
-        await expect(page.getByText("DispScenario", { exact: false }).first()).toBeVisible();
+        await expect(
+          page.getByText("DispScenario", { exact: false }).first(),
+        ).toBeVisible();
         await expect(page.locator("main")).toBeVisible();
 
         const layout = await page.evaluate(() => ({
@@ -47,7 +50,9 @@ for (const viewport of viewports) {
           title: document.querySelector("h1")?.textContent?.trim() ?? "",
         }));
 
-        expect(layout.title, `${route} should expose a page heading`).not.toBe("");
+        expect(layout.title, `${route} should expose a page heading`).not.toBe(
+          "",
+        );
         expect(
           layout.scrollWidth,
           `${route} should not expand the document horizontally at ${viewport.width}px`,

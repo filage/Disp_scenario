@@ -43,8 +43,12 @@ export default async function QAPage({
   return (
     <PageFrame
       eyebrow="Evidence review"
-      title={`Разбор сессии: ${(runs[0]?.id ?? "TRK-882-NL").slice(0, 8)}`}
-      description="Видео, кадры-доказательства, сырые наблюдения, редактирование канонических событий, контроль качества и пересборка производных артефактов."
+      title={
+        runs[0]?.id
+          ? `QA-проверка запуска ${runs[0].id.slice(0, 8)}`
+          : "QA-проверка"
+      }
+      description="Рабочее место аналитика: сверка распознанных событий с видео, исправление ошибок модели и сохранение проверенного эталона."
     >
       <DataState empty={!recordingId || bundle.events.length === 0}>
         {recordingId ? (

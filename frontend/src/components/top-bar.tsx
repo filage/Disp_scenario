@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Play, RefreshCw, Search, UserCircle } from "lucide-react";
+import { BookOpen, Play, RefreshCw } from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -9,6 +9,7 @@ const routeLabels: Record<string, string> = {
   "/recordings": "Записи",
   "/runs": "Запуски анализа",
   "/timeline": "Таймлайн",
+  "/guide": "Гайд по сценарию",
   "/scenario-map": "Карта сценариев",
   "/groups": "Группы сценариев",
   "/qa": "QA-проверка",
@@ -115,17 +116,12 @@ export function TopBar() {
       <div className="flex items-center gap-1 text-muted">
         <button
           type="button"
-          onClick={() =>
-            router.push(
-              activeRecording
-                ? `/timeline?recordingId=${activeRecording}`
-                : "/timeline",
-            )
-          }
-          className="mr-2 hidden h-8 w-48 items-center gap-2 rounded-sm border border-line bg-panel px-3 text-left text-sm hover:border-accent hover:text-accent lg:flex"
+          disabled={!activeRecording}
+          onClick={() => router.push(`/guide?recordingId=${activeRecording}`)}
+          className="mr-2 hidden h-8 items-center gap-2 rounded-sm border border-line bg-panel px-3 text-sm hover:border-accent hover:text-accent disabled:cursor-not-allowed disabled:opacity-45 lg:flex"
         >
-          <Search size={15} />
-          Поиск…
+          <BookOpen size={15} />
+          Гайд по записи
         </button>
         <button
           type="button"
@@ -135,13 +131,6 @@ export function TopBar() {
         >
           <RefreshCw size={16} />
         </button>
-        <span className="relative grid size-8 place-items-center">
-          <Bell size={17} />
-          <i className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-danger" />
-        </span>
-        <span className="grid size-8 place-items-center">
-          <UserCircle size={19} />
-        </span>
         <button
           type="button"
           disabled={!activeRecording || analyzing}

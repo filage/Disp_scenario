@@ -72,39 +72,53 @@ export function QAWorkbench({
 
   return (
     <div className="mt-6 grid gap-4">
-      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border border-line bg-panel p-4">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-4 border border-line bg-panel p-4">
         <div className="min-w-0">
-          <p className="font-mono text-[10px] uppercase text-accent">
+          <p className="text-xs font-medium text-accent">
             Разбор сессии{runId ? `: ${runId.slice(0, 8)}` : ""}
           </p>
-          <p className="mt-1 text-xs text-muted">
-            Открытые аномалии: {openIssues.length}
+          <p className="mt-1 max-w-2xl text-xs leading-5 text-muted">
+            Сверьте событие с видео и кадром, исправьте поля при необходимости,
+            затем подтвердите результат. Открытых замечаний: {openIssues.length}
+            .
           </p>
         </div>
-        <div className="flex min-w-0 flex-wrap gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <Link
             href={`/runs?recordingId=${recordingId}`}
-            className="border border-line px-3 py-2 text-[10px] uppercase text-muted transition-colors hover:border-accent hover:text-accent active:translate-y-px"
+            className="border border-line px-3 py-2 text-xs text-muted transition-colors hover:border-accent hover:text-accent active:translate-y-px"
           >
-            Версии
+            История запусков
           </Link>
+          <CompleteQA
+            recordingId={recordingId}
+            openIssueCount={openIssues.length}
+          />
+        </div>
+      </div>
+
+      <details className="border border-line bg-panel px-4 py-3">
+        <summary className="cursor-pointer text-xs font-medium text-muted hover:text-foreground">
+          Сервисные операции анализа
+        </summary>
+        <p className="mt-3 max-w-3xl text-xs leading-5 text-muted">
+          Эти действия нужны при изменении правил или диагностике. Для обычной
+          проверки записи их запускать не требуется.
+        </p>
+        <div className="mt-3 flex flex-wrap gap-2">
           <MutationButton path={`/v1/recordings/${recordingId}/rebuild`}>
-            Пересобрать артефакты
+            Пересобрать отчёты из текущих событий
           </MutationButton>
           <MutationButton path={`/v1/recordings/${recordingId}/renormalize`}>
-            Нормализовать сырые события
+            Повторить нормализацию raw-событий
           </MutationButton>
           <MutationButton
             path={`/v1/recordings/${recordingId}/boundary-review`}
           >
-            Проверка границ Gemini
+            Сверить границы через Gemini
           </MutationButton>
-          <CompleteQA
-            recordingId={recordingId}
-            disabled={openIssues.length === 0}
-          />
         </div>
-      </div>
+      </details>
 
       <section className="grid min-w-0 gap-4 border border-line bg-panel p-4 xl:grid-cols-[minmax(0,1.5fr)_minmax(18rem,1fr)]">
         {playbackHref ? (
@@ -216,7 +230,7 @@ export function QAWorkbench({
         </div>
       </section>
 
-      <div className="grid min-w-0 gap-4 2xl:grid-cols-[18rem_minmax(0,1fr)_19rem]">
+      <div className="grid min-w-0 gap-4 2xl:grid-cols-[18rem_minmax(22rem,1fr)_20rem]">
         <section className="min-w-0 border border-line bg-panel p-4">
           <h2 className="font-mono text-[10px] uppercase text-accent">
             Системные события
@@ -266,7 +280,6 @@ export function QAWorkbench({
             recordingId={recordingId}
             event={selected}
             rawEvents={rawEvents}
-            variant="dark"
           />
         ) : null}
 
@@ -281,6 +294,12 @@ export function QAWorkbench({
               </span>
             </div>
             <div className="mt-3 grid max-h-[32rem] gap-2 overflow-y-auto pr-1">
+              {!issues.length ? (
+                <p className="border border-dashed border-line p-4 text-xs leading-5 text-muted">
+                  Автоматических замечаний нет. Вы всё равно можете проверить
+                  выбранные события вручную.
+                </p>
+              ) : null}
               {issues.map((issue) => (
                 <article
                   key={issue.id}
@@ -323,48 +342,6 @@ export function QAWorkbench({
                   />
                 </article>
               ))}
-            </div>
-          </div>
-
-          <div className="min-w-0 border border-line bg-panel p-4">
-            <h2 className="font-mono text-[10px] uppercase text-accent">
-              Нормализованная последовательность
-            </h2>
-            <div className="mt-4 flex min-w-0 items-stretch gap-2 overflow-x-auto">
-              {selected
-                ? events
-                    .slice(
-                      Math.max(
-                        0,
-                        events.findIndex((event) => event.id === selected.id) -
-                          1,
-                      ),
-                      events.findIndex((event) => event.id === selected.id) + 3,
-                    )
-                    .map((event, index, visible) => (
-                      <div key={event.id} className="flex items-center gap-2">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedId(event.id)}
-                          className={`min-w-40 border p-3 text-left ${
-                            event.id === selected.id
-                              ? "border-accent bg-accent/10"
-                              : "border-line"
-                          }`}
-                        >
-                          <span className="font-mono text-[10px] text-muted">
-                            {formatClock(event.timestampMs)}
-                          </span>
-                          <strong className="mt-1 block text-xs">
-                            {event.canonicalAction}
-                          </strong>
-                        </button>
-                        {index < visible.length - 1 ? (
-                          <span className="text-accent">→</span>
-                        ) : null}
-                      </div>
-                    ))
-                : null}
             </div>
           </div>
         </section>

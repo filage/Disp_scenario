@@ -5,6 +5,7 @@ const routes = [
   "/recordings",
   "/runs",
   "/timeline",
+  "/guide",
   "/scenario-map",
   "/groups",
   "/qa",
@@ -16,7 +17,9 @@ const routes = [
 for (const route of routes) {
   test(`${route} renders application shell`, async ({ page }) => {
     await page.goto(route);
-    await expect(page.getByText("DispScenario", { exact: false }).first()).toBeVisible();
+    await expect(
+      page.getByText("DispScenario", { exact: false }).first(),
+    ).toBeVisible();
     await expect(page.locator("main")).toBeVisible();
   });
 }

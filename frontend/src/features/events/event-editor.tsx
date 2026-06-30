@@ -15,12 +15,10 @@ export function EventEditor({
   recordingId,
   event,
   rawEvents,
-  variant = "light",
 }: {
   recordingId: string;
   event: ActionEvent;
   rawEvents: RawEvent[];
-  variant?: "light" | "dark";
 }) {
   const router = useRouter();
   const [draft, setDraft] = useState({
@@ -37,24 +35,10 @@ export function EventEditor({
       event.sourceRawEventIds?.includes(raw.id) ||
       Math.abs(raw.timestampMs - event.timestampMs) <= 1500,
   );
-  const dark = variant === "dark";
-  const rawDisplay = relatedRaw[0] ?? {
-    timestampMs: event.timestampMs,
-    screen: event.screen,
-    target: event.target,
-    canonicalAction: event.canonicalAction,
-    issueType: event.issueType,
-    sourceRawEventIds: event.sourceRawEventIds,
-    qualityFlags: event.qualityFlags,
-  };
-  const fieldClass = dark
-    ? "border border-[#475569] bg-[#0f172a] px-3 py-2 text-sm text-white"
-    : "border border-line bg-background px-3 py-2 text-sm text-foreground";
+  const fieldClass =
+    "border border-line bg-background px-3 py-2 text-sm text-foreground";
 
-  async function save(
-    extra: Record<string, unknown>,
-    includeDraft = true,
-  ) {
+  async function save(extra: Record<string, unknown>, includeDraft = true) {
     setState("saving");
     const response = await fetch(
       `${apiURL}/v1/recordings/${recordingId}/events/${event.id}`,
@@ -76,47 +60,23 @@ export function EventEditor({
   }
 
   return (
-    <aside
-      className={
-        dark
-          ? "grid min-h-[42rem] grid-rows-[auto_minmax(10rem,1fr)_auto_auto] border border-[#334155] bg-[#1e293b] text-[#f8fafc]"
-          : "border border-line bg-panel-raised p-5"
-      }
-    >
-      <div
-        className={
-          dark
-            ? "flex items-start justify-between gap-4 border-b border-[#334155] px-4 py-3"
-            : "flex items-start justify-between gap-4"
-        }
-      >
+    <aside className="border border-line bg-panel-raised p-5">
+      <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="font-mono text-[10px] uppercase tracking-[0.18em] text-accent">
-            {dark ? "Сырые данные Gemini" : "Инспектор события"}
+          <p className="text-xs font-medium text-accent">
+            Проверка выбранного события
           </p>
           <p className="mt-2 font-mono text-xs text-muted">
             {formatClock(event.timestampMs)} · v{event.version}
           </p>
         </div>
-        <span className="font-mono text-[10px] uppercase text-muted">
+        <span className="text-xs text-muted">
           {formatQAStatus(event.qaStatus)}
         </span>
       </div>
 
-      {dark ? (
-        <pre className="max-h-[22rem] overflow-auto whitespace-pre-wrap p-4 font-mono text-[11px] leading-5 text-[#dbeafe]">
-          {JSON.stringify(rawDisplay, null, 2)}
-        </pre>
-      ) : null}
-
-      <div
-        className={
-          dark
-            ? "grid gap-3 border-t border-[#334155] bg-[#111827] p-4 md:grid-cols-2"
-            : "mt-5 grid gap-4"
-        }
-      >
-        <label className={`grid gap-2 text-xs ${dark ? "text-[#cbd5e1]" : "text-muted"}`}>
+      <div className="mt-5 grid gap-4">
+        <label className="grid gap-2 text-xs text-muted">
           Каноническое действие
           <select
             value={draft.canonicalAction}
@@ -133,7 +93,7 @@ export function EventEditor({
             ))}
           </select>
         </label>
-        <label className={`grid gap-2 text-xs ${dark ? "text-[#cbd5e1]" : "text-muted"}`}>
+        <label className="grid gap-2 text-xs text-muted">
           Цель
           <input
             value={draft.target}
@@ -146,7 +106,7 @@ export function EventEditor({
             className={fieldClass}
           />
         </label>
-        <label className={`grid gap-2 text-xs ${dark ? "text-[#cbd5e1]" : "text-muted"}`}>
+        <label className="grid gap-2 text-xs text-muted">
           Тип проблемы
           <input
             value={draft.issueType}
@@ -159,7 +119,7 @@ export function EventEditor({
             className={fieldClass}
           />
         </label>
-        <label className={`grid gap-2 text-xs ${dark ? "text-[#cbd5e1] md:col-span-2" : "text-muted"}`}>
+        <label className="grid gap-2 text-xs text-muted">
           Комментарий QA
           <textarea
             value={draft.qaComment}
@@ -175,34 +135,26 @@ export function EventEditor({
         </label>
       </div>
 
-      <div
-        className={
-          dark
-            ? "flex flex-wrap gap-2 border-t border-[#334155] bg-[#111827] p-4"
-            : "mt-5 flex flex-wrap gap-2"
-        }
-      >
+      <p className="mt-5 text-xs leading-5 text-muted">
+        Подтвердите корректное событие, сохраните исправленный эталон для
+        будущей оценки модели либо пометьте неоднозначную границу или шум.
+      </p>
+      <div className="mt-3 flex flex-wrap gap-2">
         <button
           type="button"
           disabled={state === "saving"}
           onClick={() => save({ qaStatus: "confirmed" })}
-          className={
-            dark
-              ? "border border-[#475569] bg-[#15803d] px-3 py-2 text-[10px] uppercase text-white disabled:opacity-50"
-              : "border border-accent px-3 py-2 text-[10px] uppercase text-accent disabled:opacity-50"
-          }
+          className="border border-accent px-3 py-2 text-xs font-medium text-accent hover:bg-accent-soft disabled:opacity-50"
         >
-          Подтвердить
+          Подтвердить событие
         </button>
         <button
           type="button"
           disabled={state === "saving"}
-          onClick={() =>
-            save({ qaStatus: "edited", saveGroundTruth: true })
-          }
-          className="border border-warning px-3 py-2 text-[10px] uppercase text-warning disabled:opacity-50"
+          onClick={() => save({ qaStatus: "edited", saveGroundTruth: true })}
+          className="border border-warning px-3 py-2 text-xs font-medium text-warning disabled:opacity-50"
         >
-          Сохранить эталон
+          Исправить и сохранить эталон
         </button>
         <button
           type="button"
@@ -221,9 +173,9 @@ export function EventEditor({
               false,
             )
           }
-          className="border border-warning px-3 py-2 text-[10px] uppercase text-warning disabled:opacity-50"
+          className="border border-warning px-3 py-2 text-xs font-medium text-warning disabled:opacity-50"
         >
-          Спорно
+          Граница неоднозначна
         </button>
         <button
           type="button"
@@ -233,16 +185,13 @@ export function EventEditor({
               {
                 qaStatus: "ignored",
                 qualityFlags: [
-                  ...new Set([
-                    ...(event.qualityFlags ?? []),
-                    "IGNORED_NOISE",
-                  ]),
+                  ...new Set([...(event.qualityFlags ?? []), "IGNORED_NOISE"]),
                 ],
               },
               false,
             )
           }
-          className="border border-danger px-3 py-2 text-[10px] uppercase text-danger disabled:opacity-50"
+          className="border border-danger px-3 py-2 text-xs font-medium text-danger disabled:opacity-50"
         >
           Отметить как шум
         </button>
@@ -251,12 +200,14 @@ export function EventEditor({
         <p className="mt-3 text-xs text-accent">Сохранено и пересобрано.</p>
       ) : null}
       {state === "error" ? (
-        <p className="mt-3 text-xs text-danger">Не удалось сохранить изменения.</p>
+        <p className="mt-3 text-xs text-danger">
+          Не удалось сохранить изменения.
+        </p>
       ) : null}
 
-      {!dark ? <div className="mt-6 border-t border-line pt-4">
-        <p className="font-mono text-[10px] uppercase text-muted">
-          Исходные наблюдения
+      <div className="mt-6 border-t border-line pt-4">
+        <p className="text-xs font-medium text-muted">
+          Что увидела модель в исходном видео
         </p>
         <div className="mt-3 grid gap-2">
           {relatedRaw.length ? (
@@ -271,10 +222,12 @@ export function EventEditor({
               </article>
             ))
           ) : (
-            <p className="text-xs text-muted">Связанных сырых наблюдений нет.</p>
+            <p className="text-xs text-muted">
+              Связанных сырых наблюдений нет.
+            </p>
           )}
         </div>
-      </div> : null}
+      </div>
     </aside>
   );
 }

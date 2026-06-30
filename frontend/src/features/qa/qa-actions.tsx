@@ -3,8 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-const apiUrl =
-  process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
 
 export function ResolveIssue({
   recordingId,
@@ -43,17 +42,17 @@ export function ResolveIssue({
 
 export function CompleteQA({
   recordingId,
-  disabled = false,
+  openIssueCount,
 }: {
   recordingId: string;
-  disabled?: boolean;
+  openIssueCount: number;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   return (
     <button
       type="button"
-      disabled={busy || disabled}
+      disabled={busy || openIssueCount === 0}
       onClick={async () => {
         setBusy(true);
         await fetch(`${apiUrl}/v1/recordings/${recordingId}/qa/complete`, {
@@ -64,9 +63,13 @@ export function CompleteQA({
         setBusy(false);
         router.refresh();
       }}
-      className="border border-accent px-4 py-2 text-xs uppercase text-accent disabled:cursor-not-allowed disabled:opacity-50"
+      className="border border-accent px-4 py-2 text-xs font-medium text-accent hover:bg-accent-soft disabled:cursor-not-allowed disabled:opacity-50"
     >
-      {busy ? "Завершение…" : "Завершить проверку"}
+      {busy
+        ? "Закрываем замечания…"
+        : openIssueCount > 0
+          ? `Закрыть все замечания (${openIssueCount})`
+          : "Замечания закрыты"}
     </button>
   );
 }

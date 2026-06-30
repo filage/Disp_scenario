@@ -4,6 +4,7 @@ import { StatusBadge } from "@/components/data-state";
 import { ScenarioMetricsTable } from "@/features/scenarios/scenario-metrics-table";
 import type { ScenarioGroup } from "@/features/scenarios/types";
 import { getSystemSnapshot } from "@/lib/api";
+import { formatDuration } from "@/lib/display";
 import {
   type AnalysisRun,
   apiData,
@@ -13,14 +14,10 @@ import {
 
 export const dynamic = "force-dynamic";
 
-type ScenarioInstance = {
-  id: string;
-  startedAtMs: number;
-  endedAtMs: number;
-};
+type ScenarioInstance = { id: string };
 
 type ProjectBundle = {
-  events?: { confidence: number }[];
+  events?: { confidence: number; qaStatus?: string }[];
   dataQualityIssues?: { resolved: boolean }[];
   scenarios?: {
     instances?: ScenarioInstance[];
@@ -45,9 +42,7 @@ export default async function OverviewPage({
       params.recordingId
         ? `/v1/recordings/${params.recordingId}/analysis`
         : "/v1/project/analysis",
-    ).catch(
-      () => ({} as ProjectBundle),
-    ),
+    ).catch(() => ({}) as ProjectBundle),
   ]);
   const recordings = snapshot.recordings ?? [];
   const events = project.events ?? [];
@@ -67,6 +62,9 @@ export default async function OverviewPage({
           100,
       )
     : 0;
+  const reviewedEvents = events.filter((event) =>
+    ["confirmed", "edited", "reviewed"].includes(event.qaStatus ?? ""),
+  ).length;
   const activeRuns = runs.filter((run) =>
     ["QUEUED", "PROCESSING", "NORMALIZING"].includes(run.status),
   ).length;
@@ -77,7 +75,7 @@ export default async function OverviewPage({
       title="Обзор аналитики"
       description="Сводка по записям, сценариям, качеству данных и кандидатам на автоматизацию."
     >
-      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
         <MetricCard
           label="Проанализировано"
           value={recordings.filter((item) => item.status === "ANALYZED").length}
@@ -100,24 +98,29 @@ export default async function OverviewPage({
           tone="accent"
         />
         <MetricCard
-          label="Уверенность"
+          label="Оценка модели"
           value={`${confidence}%`}
-          detail="Средняя по нормализованным событиям"
+          detail={
+            confidence >= 99
+              ? `Некалиброванная самооценка по ${events.length} событиям — не равна точности`
+              : `Средняя самооценка по ${events.length} нормализованным событиям`
+          }
+          tone={confidence >= 99 ? "danger" : "default"}
         />
         <MetricCard
-          label="Предупреждения"
-          value={qualityIssues.length}
-          detail="Неразрешённые проблемы качества"
-          tone={qualityIssues.length ? "danger" : "default"}
+          label="Проверено человеком"
+          value={`${reviewedEvents}/${events.length}`}
+          detail={`${qualityIssues.length} открытых замечаний качества`}
+          tone={qualityIssues.length ? "danger" : "accent"}
         />
       </section>
 
       <section className="mt-6 grid gap-4 xl:grid-cols-3">
-        <ChartPanel title="Сценарии со временем">
-          <MiniBars items={buildScenarioTrend(instances)} />
+        <ChartPanel title="Самые частые сценарии">
+          <RankedScenarios groups={groups} mode="frequency" />
         </ChartPanel>
-        <ChartPanel title="Средняя длительность">
-          <MiniBars items={buildDurationBars(groups)} />
+        <ChartPanel title="Где уходит больше времени">
+          <RankedScenarios groups={groups} mode="duration" />
         </ChartPanel>
         <article className="border border-line bg-panel p-5">
           <h2 className="text-sm font-semibold">Недавние запуски</h2>
@@ -146,13 +149,17 @@ export default async function OverviewPage({
       </section>
 
       <section className="mt-6 border border-line bg-panel">
-        <div className="flex items-center justify-between p-5">
-          <h2 className="text-sm font-semibold">Топ узких мест</h2>
-          <span className="font-mono text-[10px] uppercase text-muted">
-            область: проект
-          </span>
+        <div className="flex flex-wrap items-start justify-between gap-3 p-5">
+          <div>
+            <h2 className="text-base font-semibold">Повторяющиеся сценарии</h2>
+            <p className="mt-1 max-w-3xl text-xs leading-5 text-muted">
+              Сводка по всем выбранным записям. Потенциал автоматизации —
+              расчётный приоритет, а не процент уже выполненной автоматизации.
+            </p>
+          </div>
+          <span className="text-xs text-muted">Область: весь проект</span>
         </div>
-        <ScenarioMetricsTable groups={groups} limit={8} />
+        <ScenarioMetricsTable groups={groups} limit={8} compact />
       </section>
 
       <section className="mt-6 grid gap-3 sm:grid-cols-3">
@@ -192,82 +199,53 @@ function ChartPanel({
   );
 }
 
-function MiniBars({
-  items,
+function RankedScenarios({
+  groups,
+  mode,
 }: {
-  items: { label: string; value: number; height: number }[];
+  groups: ScenarioGroup[];
+  mode: "frequency" | "duration";
 }) {
-  if (!items.length) {
-    return <p className="mt-8 text-sm text-muted">Данных пока нет.</p>;
-  }
-  return (
-    <div className="mt-6 flex h-40 items-end gap-2">
-      {items.map((item, index) => (
-        <div
-          key={`${item.label}-${index}`}
-          className="group relative min-w-0 flex-1"
-          title={`${item.label}: ${item.value}`}
-        >
-          <div
-            className="min-h-2 bg-accent/75 transition-colors group-hover:bg-accent"
-            style={{ height: `${item.height * 1.4}px` }}
-          />
-          <span className="mt-2 block truncate font-mono text-[9px] text-muted">
-            {item.label}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function buildScenarioTrend(instances: ScenarioInstance[]) {
-  const safe = instances.filter((item) => Number.isFinite(item.startedAtMs));
-  if (!safe.length) return [];
-  const minimum = Math.min(...safe.map((item) => item.startedAtMs));
+  const rows = [...groups]
+    .filter((group) =>
+      mode === "frequency" ? group.frequency > 0 : group.averageDurationMs > 0,
+    )
+    .sort((left, right) =>
+      mode === "frequency"
+        ? right.frequency - left.frequency
+        : right.averageDurationMs - left.averageDurationMs,
+    )
+    .slice(0, 5);
   const maximum = Math.max(
-    ...safe.map((item) =>
-      Number.isFinite(item.endedAtMs) ? item.endedAtMs : item.startedAtMs,
+    ...rows.map((group) =>
+      mode === "frequency" ? group.frequency : group.averageDurationMs,
     ),
+    1,
   );
-  const bucketCount = Math.min(7, Math.max(1, safe.length));
-  const bucketSize = Math.max(1, (maximum - minimum + 1) / bucketCount);
-  const buckets = Array.from({ length: bucketCount }, (_, index) => ({
-    label: `${formatMinutes(minimum + bucketSize * index)}–${formatMinutes(minimum + bucketSize * (index + 1))}`,
-    value: 0,
-  }));
-  for (const instance of safe) {
-    const index = Math.min(
-      bucketCount - 1,
-      Math.floor((instance.startedAtMs - minimum) / bucketSize),
-    );
-    buckets[index].value += 1;
-  }
-  return scaleItems(buckets);
-}
-
-function buildDurationBars(groups: ScenarioGroup[]) {
-  return scaleItems(
-    groups
-      .map((group) => ({
-        label: group.code ?? group.name,
-        value: group.averageDurationMs || group.medianDurationMs || 0,
-      }))
-      .filter((item) => item.value > 0)
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 7),
+  if (!rows.length)
+    return <p className="mt-8 text-sm text-muted">Данных пока нет.</p>;
+  return (
+    <ol className="mt-5 grid gap-4">
+      {rows.map((group) => {
+        const value =
+          mode === "frequency" ? group.frequency : group.averageDurationMs;
+        return (
+          <li key={group.id}>
+            <div className="flex items-baseline justify-between gap-3 text-xs">
+              <span className="truncate font-medium">{group.name}</span>
+              <span className="shrink-0 text-muted">
+                {mode === "frequency" ? `${value} раз` : formatDuration(value)}
+              </span>
+            </div>
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-line/50">
+              <div
+                className="h-full rounded-full bg-accent"
+                style={{ width: `${Math.max(6, (value / maximum) * 100)}%` }}
+              />
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
-}
-
-function scaleItems(items: { label: string; value: number }[]) {
-  const maximum = Math.max(...items.map((item) => item.value), 0);
-  if (!maximum) return [];
-  return items.map((item) => ({
-    ...item,
-    height: Math.max(8, Math.round((item.value / maximum) * 100)),
-  }));
-}
-
-function formatMinutes(milliseconds: number) {
-  return `${Math.max(0, Math.round(milliseconds / 60000))} мин`;
 }

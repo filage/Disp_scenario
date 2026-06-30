@@ -1,30 +1,24 @@
 "use client";
 
 import { Fragment, useMemo, useState } from "react";
-import { EventEditor } from "@/features/events/event-editor";
-import { timedEventNarrative } from "@/features/events/event-narrative";
+import Link from "next/link";
+import { eventNarrative } from "@/features/events/event-narrative";
 import {
   ScenarioBoundaryDivider,
   ScenarioBoundaryTableRow,
   createScenarioBoundaryLookup,
 } from "@/features/events/scenario-boundaries";
-import type {
-  ActionEvent,
-  RawEvent,
-  ScenarioInstance,
-} from "@/features/events/types";
+import type { ActionEvent, ScenarioInstance } from "@/features/events/types";
 import { formatClock, formatIssueType, formatQAStatus } from "@/lib/display";
 
 export function TimelineWorkbench({
   recordingId,
   events,
-  rawEvents,
   scenarioInstances = [],
   exportHref,
 }: {
   recordingId: string;
   events: ActionEvent[];
-  rawEvents: RawEvent[];
   scenarioInstances?: ScenarioInstance[];
   exportHref: string;
 }) {
@@ -119,23 +113,23 @@ export function TimelineWorkbench({
             Экспорт CSV
           </a>
         </div>
-        <section className="mt-4 border border-line bg-background p-4">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="font-mono text-[10px] uppercase text-accent">
-              Ход выполнения
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border border-line bg-background p-4">
+          <div>
+            <h3 className="text-sm font-semibold">
+              Нужна пошаговая инструкция?
             </h3>
-            <span className="font-mono text-[10px] text-muted">
-              {events.length} шагов
-            </span>
+            <p className="mt-1 text-xs leading-5 text-muted">
+              Русское описание и кадры вынесены в отдельный пользовательский
+              гайд.
+            </p>
           </div>
-          <ol className="mt-3 grid max-h-48 gap-2 overflow-y-auto pr-1 text-xs leading-5 text-[#26364f]">
-            {events.map((event) => (
-              <li key={event.id} className="border-l border-line pl-3">
-                {timedEventNarrative(event)}
-              </li>
-            ))}
-          </ol>
-        </section>
+          <Link
+            href={`/guide?recordingId=${recordingId}`}
+            className="border border-accent px-3 py-2 text-xs font-medium text-accent hover:bg-accent-soft active:translate-y-px"
+          >
+            Открыть гайд
+          </Link>
+        </div>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full min-w-[64rem] text-left text-xs">
             <thead className="font-mono text-[10px] uppercase text-muted">
@@ -210,13 +204,54 @@ export function TimelineWorkbench({
       </section>
 
       {selected ? (
-        <EventEditor
-          key={`${selected.id}-${selected.version}`}
-          recordingId={recordingId}
-          event={selected}
-          rawEvents={rawEvents}
-        />
+        <aside className="min-w-0 border border-line bg-panel p-5">
+          <p className="text-xs font-medium text-accent">Детали события</p>
+          <div className="mt-3 flex items-baseline justify-between gap-3">
+            <h2 className="text-base font-semibold">
+              {selected.canonicalAction}
+            </h2>
+            <span className="font-mono text-xs text-muted">
+              {formatClock(selected.timestampMs)}
+            </span>
+          </div>
+          <p className="mt-3 text-sm leading-6">{eventNarrative(selected)}</p>
+          <dl className="mt-5 divide-y divide-line border-y border-line text-xs">
+            <Detail label="Экран" value={selected.screen} />
+            <Detail label="Цель" value={selected.target || "—"} />
+            <Detail
+              label="Тип проблемы"
+              value={formatIssueType(selected.issueType)}
+            />
+            <Detail
+              label="Оценка модели"
+              value={`${Math.round(selected.confidence * 100)}%`}
+            />
+            <Detail
+              label="Статус QA"
+              value={formatQAStatus(selected.qaStatus)}
+            />
+          </dl>
+          <p className="mt-4 text-xs leading-5 text-muted">
+            Здесь данные доступны только для просмотра. Исправление и
+            подтверждение выполняются в QA.
+          </p>
+          <Link
+            href={`/qa?recordingId=${recordingId}`}
+            className="mt-4 block border border-accent px-3 py-2 text-center text-xs font-medium text-accent hover:bg-accent-soft active:translate-y-px"
+          >
+            Перейти к QA-проверке
+          </Link>
+        </aside>
       ) : null}
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[7rem_minmax(0,1fr)] gap-3 py-3">
+      <dt className="text-muted">{label}</dt>
+      <dd className="break-words font-medium">{value}</dd>
     </div>
   );
 }
