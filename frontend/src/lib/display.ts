@@ -46,6 +46,9 @@ export function formatIssueType(value?: string | null): string {
   const labels: Record<string, string> = {
     "Late pickup": "Опоздание на забор",
     "Unassigned courier": "Курьер не назначен",
+    "Delivery destination change": "Смена точки окончания доставки",
+    "Recipient contact update": "Обновление контакта получателя",
+    "Delivery note update": "Добавление комментария к доставке",
     Unknown: "Неизвестно",
   };
   if (!value) return "—";

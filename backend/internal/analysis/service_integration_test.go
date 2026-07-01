@@ -110,7 +110,16 @@ func analysisTestPool(t *testing.T, ctx context.Context) *pgxpool.Pool {
 			postgres.WithDatabase("analyst"),
 			postgres.WithUsername("analyst"),
 			postgres.WithPassword("analyst"),
-			postgres.WithInitScripts("../../migrations/000001_init.up.sql"),
+			postgres.WithInitScripts(
+				"../../migrations/000001_init.up.sql",
+				"../../migrations/000002_runtime_boundary_rules.up.sql",
+				"../../migrations/000003_analysis_correlation_id.up.sql",
+				"../../migrations/000004_analysis_run_cost.up.sql",
+				"../../migrations/000005_strict_known_scenario_boundaries.up.sql",
+				"../../migrations/000006_atomic_action_taxonomy.up.sql",
+				"../../migrations/000007_user_credentials.up.sql",
+				"../../migrations/000008_routine_scenarios.up.sql",
+			),
 			testcontainers.WithWaitStrategy(
 				wait.ForLog("database system is ready to accept connections").
 					WithOccurrence(2).

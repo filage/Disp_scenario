@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { ScenarioGroup } from "@/features/scenarios/types";
+import { actionDescription } from "@/features/scenarios/action-description";
 import { formatDuration, formatIssueType } from "@/lib/display";
 
 export type GraphNode = {
@@ -218,6 +219,7 @@ export function ScenarioMapWorkbench({
             {filtered.nodes.map((node) => {
               const point = layout.get(node.id);
               if (!point) return null;
+              const description = actionDescription(node.id);
               const focused =
                 !selected ||
                 selected.id === node.id ||
@@ -231,7 +233,7 @@ export function ScenarioMapWorkbench({
                   key={node.id}
                   role="button"
                   tabIndex={0}
-                  aria-label={`${node.label}. Нажмите повторно, чтобы показать весь граф.`}
+                  aria-label={`${node.label}. ${description}. Нажмите повторно, чтобы показать весь граф.`}
                   onClick={() =>
                     setSelectedId((current) =>
                       current === node.id ? "" : node.id,
@@ -249,10 +251,10 @@ export function ScenarioMapWorkbench({
                   opacity={focused ? 1 : 0.25}
                 >
                   <rect
-                    x={point.x - 86}
-                    y={point.y - 34}
-                    width="172"
-                    height="68"
+                    x={point.x - 94}
+                    y={point.y - 41}
+                    width="188"
+                    height="82"
                     rx="3"
                     fill={
                       selected?.id === node.id
@@ -267,7 +269,7 @@ export function ScenarioMapWorkbench({
                   />
                   <text
                     x={point.x}
-                    y={point.y - 4}
+                    y={point.y - 15}
                     fill="var(--color-foreground)"
                     fontSize="12"
                     fontWeight="600"
@@ -277,7 +279,16 @@ export function ScenarioMapWorkbench({
                   </text>
                   <text
                     x={point.x}
-                    y={point.y + 15}
+                    y={point.y + 5}
+                    fill="var(--color-foreground)"
+                    fontSize="10"
+                    textAnchor="middle"
+                  >
+                    {description}
+                  </text>
+                  <text
+                    x={point.x}
+                    y={point.y + 25}
                     fill="var(--color-muted)"
                     fontSize="10"
                     textAnchor="middle"
@@ -302,6 +313,9 @@ export function ScenarioMapWorkbench({
           {selected ? (
             <>
               <h2 className="mt-3 text-lg font-semibold">{selected.label}</h2>
+              <p className="mt-1 text-sm text-foreground">
+                {actionDescription(selected.id)}
+              </p>
               <p className="mt-2 text-xs text-muted">
                 {formatNodeType(selected.type)} · повторов: {selected.frequency}{" "}
                 · уверенность {Math.round(selected.confidence * 100)}%
@@ -515,8 +529,8 @@ function trimEdge(
   const unitX = dx / distance;
   const unitY = dy / distance;
   const offset = Math.min(
-    Math.abs(unitX) > 0 ? 86 / Math.abs(unitX) : Number.POSITIVE_INFINITY,
-    Math.abs(unitY) > 0 ? 34 / Math.abs(unitY) : Number.POSITIVE_INFINITY,
+    Math.abs(unitX) > 0 ? 94 / Math.abs(unitX) : Number.POSITIVE_INFINITY,
+    Math.abs(unitY) > 0 ? 41 / Math.abs(unitY) : Number.POSITIVE_INFINITY,
   );
   return {
     x1: from.x + unitX * offset,

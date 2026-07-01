@@ -1,4 +1,5 @@
 import { expect, test, type ConsoleMessage } from "@playwright/test";
+import { loginAsDemo } from "./auth";
 
 const routes = [
   "/overview",
@@ -18,6 +19,10 @@ const viewports = [
   { name: "mobile", width: 390, height: 900 },
   { name: "desktop", width: 1440, height: 1000 },
 ];
+
+test.beforeEach(async ({ page }) => {
+  await loginAsDemo(page);
+});
 
 for (const viewport of viewports) {
   test.describe(`${viewport.name} UI parity guard`, () => {

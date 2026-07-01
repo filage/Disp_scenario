@@ -2,9 +2,10 @@ import { basename, resolve } from "node:path";
 import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
+import { loginAsDemo } from "./auth";
 
 const fullStack = process.env.E2E_FULL_STACK === "true";
-const apiURL = process.env.E2E_API_URL ?? "http://localhost:8787";
+const apiURL = process.env.E2E_API_URL ?? "/api/backend";
 const projectRoot = resolve(process.cwd(), "..");
 const excludedTestRecording = "20260512_081010_1x92893";
 const defaultRealVideo = resolve(
@@ -21,6 +22,10 @@ test.describe("real Gemini analysis flow", () => {
     "requires the Docker Compose stack and a real Gemini key",
   );
   test.setTimeout(10 * 60_000);
+
+  test.beforeEach(async ({ page }) => {
+    await loginAsDemo(page);
+  });
 
   test("real video → Gemini → timeline → QA complete → report → export", async ({
     page,

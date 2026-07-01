@@ -46,6 +46,8 @@ func TestPostgresRunnerClaimsJobAndPublishesOutbox(t *testing.T) {
 			"../../migrations/000004_analysis_run_cost.up.sql",
 			"../../migrations/000005_strict_known_scenario_boundaries.up.sql",
 			"../../migrations/000006_atomic_action_taxonomy.up.sql",
+			"../../migrations/000007_user_credentials.up.sql",
+			"../../migrations/000008_routine_scenarios.up.sql",
 		),
 		testcontainers.WithWaitStrategy(
 			wait.ForLog("database system is ready to accept connections").

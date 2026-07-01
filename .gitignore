@@ -16,6 +16,7 @@ output/
 tests/fixtures/videos/*.mp4
 tests/fixtures/videos/*.webm
 .playwright-cli/
+.graphify/
 *.log
 .idea/
 .vscode/

@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import type { ScenarioGroup } from "@/features/scenarios/types";
 import {
   formatDuration,
@@ -38,41 +39,80 @@ export function ScenarioMetricsTable({
           </thead>
           <tbody>
             {rows.map((group) => (
-              <tr key={group.id} className="border-b border-line">
-                <td className="px-4 py-4">
-                  <strong className="block text-foreground">
-                    {group.name}
-                  </strong>
-                  <span className="mt-1 block text-xs text-muted">
-                    {formatIssueType(group.issueType)}
-                  </span>
-                </td>
-                <td className="px-4 py-4 font-mono">{group.frequency}</td>
-                <td className="px-4 py-4">
-                  {formatDuration(group.averageDurationMs)}
-                </td>
-                <td className="px-4 py-4 font-mono">
-                  {group.manualCheckCount}
-                </td>
-                <td className="px-4 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="h-1.5 w-20 overflow-hidden rounded-full bg-line/60">
-                      <div
-                        className="h-full rounded-full bg-accent"
-                        style={{
-                          width: `${Math.round((group.automationScore ?? 0) * 100)}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="font-mono text-xs text-accent">
-                      {Math.round((group.automationScore ?? 0) * 100)}%
+              <Fragment key={group.id}>
+                <tr className="border-t border-line">
+                  <td className="px-4 pb-2 pt-4">
+                    <strong className="block text-foreground">
+                      {group.name}
+                    </strong>
+                    <span className="mt-1 block text-xs text-muted">
+                      {formatIssueType(group.issueType)}
                     </span>
-                  </div>
-                </td>
-                <td className="px-4 py-4">
-                  {formatScenarioStatus(group.status)}
-                </td>
-              </tr>
+                  </td>
+                  <td className="px-4 pb-2 pt-4 font-mono">
+                    {group.frequency}
+                  </td>
+                  <td className="px-4 pb-2 pt-4">
+                    {formatDuration(group.averageDurationMs)}
+                  </td>
+                  <td className="px-4 pb-2 pt-4 font-mono">
+                    {group.manualCheckCount}
+                  </td>
+                  <td className="px-4 pb-2 pt-4">
+                    <div className="flex items-center gap-3">
+                      <div className="h-1.5 w-20 overflow-hidden rounded-full bg-line/60">
+                        <div
+                          className="h-full rounded-full bg-accent"
+                          style={{
+                            width: `${Math.round((group.automationScore ?? 0) * 100)}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="font-mono text-xs text-accent">
+                        {Math.round((group.automationScore ?? 0) * 100)}%
+                      </span>
+                    </div>
+                  </td>
+                  <td className="px-4 pb-2 pt-4">
+                    {formatScenarioStatus(group.status)}
+                  </td>
+                </tr>
+                <tr className="border-b border-line bg-panel-raised/50">
+                  <td colSpan={6} className="px-4 pb-4 pt-3">
+                    <dl className="grid gap-x-6 gap-y-3 text-xs md:grid-cols-2 xl:grid-cols-[0.7fr_2fr_1.3fr_0.8fr]">
+                      <ScenarioDetail
+                        label="Код"
+                        value={group.code ?? group.id}
+                        mono
+                      />
+                      <ScenarioDetail
+                        label="Сигнатура"
+                        value={group.signature || "—"}
+                        mono
+                      />
+                      <ScenarioDetail
+                        label="Среднее / медиана / p95"
+                        value={`${formatDuration(group.averageDurationMs)} / ${formatDuration(group.medianDurationMs)} / ${formatDuration(group.p95DurationMs)}`}
+                      />
+                      <ScenarioDetail
+                        label="Оценка модели"
+                        value={`${Math.round((group.confidenceAverage ?? 0) * 100)}%`}
+                        mono
+                      />
+                      <ScenarioDetail
+                        label="Повторные действия"
+                        value={String(group.repeatedActionCount ?? 0)}
+                        mono
+                      />
+                      <ScenarioDetail
+                        label="Неоднозначные экземпляры"
+                        value={String(group.ambiguousCount ?? 0)}
+                        mono
+                      />
+                    </dl>
+                  </td>
+                </tr>
+              </Fragment>
             ))}
           </tbody>
         </table>
@@ -128,6 +168,27 @@ export function ScenarioMetricsTable({
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+function ScenarioDetail({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="text-[11px] text-muted">{label}</dt>
+      <dd
+        className={`mt-1 break-words text-foreground ${mono ? "font-mono text-[11px]" : ""}`}
+      >
+        {value}
+      </dd>
     </div>
   );
 }

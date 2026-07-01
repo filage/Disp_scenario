@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { loginAsDemo } from "./auth";
 
 const routes = [
   "/overview",
@@ -13,6 +14,10 @@ const routes = [
   "/reports",
   "/settings",
 ];
+
+test.beforeEach(async ({ page }) => {
+  await loginAsDemo(page);
+});
 
 for (const route of routes) {
   test(`${route} renders application shell`, async ({ page }) => {

@@ -155,6 +155,8 @@ export default async function OverviewPage({
             <p className="mt-1 max-w-3xl text-xs leading-5 text-muted">
               Сводка по всем выбранным записям. Потенциал автоматизации —
               расчётный приоритет, а не процент уже выполненной автоматизации.
+              Для каждого сценария показаны сигнатура, среднее, медиана, p95 и
+              оценка модели.
             </p>
           </div>
           <span className="text-xs text-muted">Область: весь проект</span>

@@ -12,7 +12,10 @@ func TestOnlyImplementedScenariosAreExposed(t *testing.T) {
 	for _, scenario := range KnownScenarios {
 		codes = append(codes, scenario.Code)
 	}
-	expected := []string{"LATE_PICKUP", "UNASSIGNED_COURIER"}
+	expected := []string{
+		"LATE_PICKUP", "UNASSIGNED_COURIER", "CHANGE_DELIVERY_DESTINATION",
+		"UPDATE_RECIPIENT_CONTACT", "ADD_DELIVERY_NOTE",
+	}
 	if !reflect.DeepEqual(codes, expected) {
 		t.Fatalf("unexpected known scenarios: %#v", codes)
 	}

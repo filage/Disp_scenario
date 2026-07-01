@@ -35,6 +35,20 @@ export function EventEditor({
       event.sourceRawEventIds?.includes(raw.id) ||
       Math.abs(raw.timestampMs - event.timestampMs) <= 1500,
   );
+  const rawDisplay = relatedRaw.length
+    ? relatedRaw.length === 1
+      ? relatedRaw[0]
+      : relatedRaw
+    : {
+        timestampMs: event.timestampMs,
+        screen: event.screen,
+        target: event.target,
+        canonicalAction: event.canonicalAction,
+        issueType: event.issueType,
+        confidence: event.confidence,
+        sourceRawEventIds: event.sourceRawEventIds,
+        qualityFlags: event.qualityFlags,
+      };
   const fieldClass =
     "border border-line bg-background px-3 py-2 text-sm text-foreground";
 
@@ -74,6 +88,28 @@ export function EventEditor({
           {formatQAStatus(event.qaStatus)}
         </span>
       </div>
+
+      <section className="mt-5 overflow-hidden border border-[#334155] bg-[#111827] text-[#f8fafc]">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#334155] px-4 py-3">
+          <div>
+            <h2 className="text-xs font-semibold">JSON-ответ Gemini</h2>
+            <p className="mt-1 text-[11px] text-[#94a3b8]">
+              Сырые данные, из которых собрано выбранное событие
+            </p>
+          </div>
+          <span className="font-mono text-[11px] text-[#94a3b8]">
+            {relatedRaw.length
+              ? `${relatedRaw.length} ${relatedRaw.length === 1 ? "наблюдение" : "наблюдения"}`
+              : "fallback события"}
+          </span>
+        </div>
+        <pre
+          data-testid="qa-gemini-json"
+          className="max-h-[28rem] overflow-auto whitespace-pre-wrap break-words p-4 font-mono text-[11px] leading-5 text-[#dbeafe]"
+        >
+          {JSON.stringify(rawDisplay, null, 2)}
+        </pre>
+      </section>
 
       <div className="mt-5 grid gap-4">
         <label className="grid gap-2 text-xs text-muted">

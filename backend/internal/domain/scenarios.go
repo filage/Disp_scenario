@@ -51,6 +51,24 @@ var KnownScenarios = []KnownScenario{
 		EntityType: "order", RequiredActions: []string{"SEND_TO_SELECTED_DRIVER"},
 		EndActions: []string{"RESOLVE_ISSUE"}, TimeoutMS: 20 * 60 * 1000,
 	},
+	{
+		Code: "CHANGE_DELIVERY_DESTINATION", Name: "Смена точки окончания доставки",
+		IssueType: "Delivery destination change", EntityType: "order",
+		RequiredActions: []string{"CHANGE_FIELD_VALUE"}, EndActions: []string{"SAVE"},
+		TimeoutMS: 20 * 60 * 1000,
+	},
+	{
+		Code: "UPDATE_RECIPIENT_CONTACT", Name: "Обновление контакта получателя",
+		IssueType: "Recipient contact update", EntityType: "order",
+		RequiredActions: []string{"CHANGE_FIELD_VALUE"}, EndActions: []string{"SAVE"},
+		TimeoutMS: 20 * 60 * 1000,
+	},
+	{
+		Code: "ADD_DELIVERY_NOTE", Name: "Добавление комментария к доставке",
+		IssueType: "Delivery note update", EntityType: "order",
+		RequiredActions: []string{"CHANGE_FIELD_VALUE"}, EndActions: []string{"SAVE"},
+		TimeoutMS: 20 * 60 * 1000,
+	},
 }
 
 func BuildScenarioInstances(
@@ -81,6 +99,7 @@ func BuildScenarioInstancesWithConfig(
 
 	instances := make([]ScenarioInstance, 0)
 	pendingInspections := map[string]ActionEvent{}
+	pendingOpenOrders := map[string]ActionEvent{}
 	var active *activeScenario
 
 	for _, event := range sorted {
@@ -98,6 +117,9 @@ func BuildScenarioInstancesWithConfig(
 		}
 
 		known := findKnownScenario(event, config.KnownScenarios)
+		if active == nil && known == nil && event.CanonicalAction == "OPEN_ORDER" && event.EntityID != "" {
+			pendingOpenOrders[event.EntityID] = event
+		}
 		var previous *ActionEvent
 		if active != nil && len(active.events) > 0 {
 			previous = &active.events[len(active.events)-1]
@@ -113,10 +135,10 @@ func BuildScenarioInstancesWithConfig(
 
 		start := isStartEventWithConfig(event, config)
 		if known != nil {
-			// Known order scenarios have strict, product-defined boundaries. Signals
-			// such as inspection and action-menu clicks classify the scenario, but
-			// opening the order is the first event that belongs to it.
-			start = event.CanonicalAction == "OPEN_ORDER"
+			// Problem scenarios start at the order opening. Routine scenarios are
+			// classified by the first specific edit/assignment action and include a
+			// preceding order opening when it was observed.
+			start = !isStrictOrderScenario(known.Code) || event.CanonicalAction == "OPEN_ORDER"
 		}
 		if active == nil && !start {
 			continue
@@ -129,6 +151,13 @@ func BuildScenarioInstancesWithConfig(
 			}
 			if known != nil && active.issueType == "" {
 				active.issueType = known.IssueType
+			}
+			if known != nil && !isStrictOrderScenario(known.Code) {
+				if opened, ok := pendingOpenOrders[event.EntityID]; ok && opened.ID != event.ID {
+					active.events = append(active.events, opened)
+					active.startedAtMS = opened.TimestampMS
+					delete(pendingOpenOrders, event.EntityID)
+				}
 			}
 			if inspection, ok := pendingInspections[event.EntityID]; ok && event.EntityID != "" {
 				if known == nil {
@@ -153,6 +182,8 @@ func BuildScenarioInstancesWithConfig(
 			outcome, status := inferOutcome(active.events), "confirmed"
 			if knownEnd && active.known != nil && isStrictOrderScenario(active.known.Code) {
 				outcome = "resolved"
+			} else if knownEnd && active.known != nil {
+				outcome = "completed"
 			}
 			if elapsed >= timeout && !knownEnd && !genericEnd {
 				outcome, status = "unresolved", "ambiguous"
@@ -192,17 +223,26 @@ type activeScenario struct {
 }
 
 func findKnownScenario(event ActionEvent, knownScenarios []KnownScenario) *KnownScenario {
+	source := strings.ToLower(event.Target + " " + event.Screen + " " + event.StateChange + " " + event.VisibleText)
 	for index := range knownScenarios {
 		scenario := &knownScenarios[index]
-		if event.IssueType == scenario.IssueType {
+		if scenario.IssueType != "" && event.IssueType == scenario.IssueType {
 			return scenario
 		}
-		source := strings.ToLower(event.Target + " " + event.Screen + " " + event.StateChange + " " + event.VisibleText)
 		if scenario.Code == "LATE_PICKUP" && latePickupSignal(source) {
 			return scenario
 		}
 		if scenario.Code == "UNASSIGNED_COURIER" &&
-			containsAny(source, "unassigned", "courier", "driver", "to drivers", "send order") {
+			containsAny(source, "unassigned", "no courier", "no driver", "to drivers", "send order") {
+			return scenario
+		}
+		if scenario.Code == "CHANGE_DELIVERY_DESTINATION" && destinationChangeSignal(source) {
+			return scenario
+		}
+		if scenario.Code == "UPDATE_RECIPIENT_CONTACT" && recipientContactUpdateSignal(source) {
+			return scenario
+		}
+		if scenario.Code == "ADD_DELIVERY_NOTE" && deliveryNoteUpdateSignal(source) {
 			return scenario
 		}
 	}
@@ -297,7 +337,7 @@ func shouldEndKnown(scenario KnownScenario, current ActionEvent, events []Action
 	if isStrictOrderScenario(scenario.Code) {
 		return current.CanonicalAction == "RESOLVE_ISSUE" && !failedScenarioEnd(current)
 	}
-	if !includes(scenario.EndActions, current.CanonicalAction) || !successfulScenarioEnd(current) {
+	if !includes(scenario.EndActions, current.CanonicalAction) || failedScenarioEnd(current) {
 		return false
 	}
 	completed := map[string]bool{}
@@ -315,6 +355,21 @@ func shouldEndKnown(scenario KnownScenario, current ActionEvent, events []Action
 		}
 	}
 	return true
+}
+
+func destinationChangeSignal(source string) bool {
+	return containsAny(source, "delivery destination", "delivery address", "dropoff address", "drop-off address", "destination point") &&
+		containsAny(source, "edit", "change", "changed", "new", "save", "saved")
+}
+
+func recipientContactUpdateSignal(source string) bool {
+	return containsAny(source, "recipient contact", "recipient phone", "customer contact", "customer phone", "phone number") &&
+		containsAny(source, "edit", "change", "changed", "new", "save", "saved")
+}
+
+func deliveryNoteUpdateSignal(source string) bool {
+	return containsAny(source, "delivery note", "delivery comment", "delivery instructions", "courier note", "order comment") &&
+		containsAny(source, "add", "edit", "change", "changed", "new", "save", "saved")
 }
 
 func isStrictOrderScenario(code string) bool {

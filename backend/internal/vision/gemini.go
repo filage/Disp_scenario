@@ -408,6 +408,7 @@ Rules:
 - Treat opening "Take Action" and selecting an option inside it as two separate events. Always capture the selected option, especially "Confirm courier assigned", "Resolve late pickup", and "Mark pickup completed", even when the menu is visible for less than one second.
 - Treat driver assignment as separate events when visible: opening the driver assignment modal, selecting a driver checkbox, clicking "Send to Selected", and later confirming courier assignment.
 - Treat schedule/field edits as separate events when visible: clicking "Edit", changing a value or time input, and clicking "Save".
+- Capture routine work even when there is no warning or issue: changing a delivery destination/address, updating the recipient contact, and adding or editing delivery notes/instructions. Preserve the exact field intent in target, visibleText, stateChange, and payload notes.
 - Treat hovering an issue badge until a tooltip appears as a separate event. Use eventTypeGuess "hover", include the exact tooltip text in visibleText, and include the corresponding orderId in payload.
 - Operators may inspect several issue badges before choosing one order to process. Record every hover separately and never merge issue text between different orderIds.
 - Detect every tooltip-producing badge hover independently of later clicks. Preserve the exact sequence, including repeated inspection of the same badge after its tooltip disappears.

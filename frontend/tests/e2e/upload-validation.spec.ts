@@ -1,8 +1,13 @@
 import { expect, test, type Page } from "@playwright/test";
+import { loginAsDemo } from "./auth";
 
-const apiURL = process.env.E2E_API_URL ?? "http://localhost:8787";
+const apiURL = process.env.E2E_API_URL ?? "/api/backend";
 
 test.describe("recording upload validation", () => {
+  test.beforeEach(async ({ page }) => {
+    await loginAsDemo(page);
+  });
+
   test("unsupported file upload is rejected without creating a recording", async ({
     page,
   }) => {

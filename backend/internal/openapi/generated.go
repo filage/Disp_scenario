@@ -176,6 +176,14 @@ type HealthResponse struct {
 // JsonObject defines model for JsonObject.
 type JsonObject map[string]interface{}
 
+// ProviderCredentialStatus defines model for ProviderCredentialStatus.
+type ProviderCredentialStatus struct {
+	Configured bool       `json:"configured"`
+	LastFour   *string    `json:"lastFour,omitempty"`
+	Provider   string     `json:"provider"`
+	UpdatedAt  *time.Time `json:"updatedAt,omitempty"`
+}
+
 // Recording defines model for Recording.
 type Recording struct {
 	CreatedAt    time.Time          `json:"createdAt"`
@@ -240,6 +248,11 @@ type ExportRecordingParamsKind string
 // ExportRecordingParamsFormat defines parameters for ExportRecording.
 type ExportRecordingParamsFormat string
 
+// UpdateGeminiCredentialJSONBody defines parameters for UpdateGeminiCredential.
+type UpdateGeminiCredentialJSONBody struct {
+	ApiKey *string `json:"apiKey,omitempty"`
+}
+
 // ImportGroundTruthJSONRequestBody defines body for ImportGroundTruth for application/json ContentType.
 type ImportGroundTruthJSONRequestBody = JsonObject
 
@@ -257,6 +270,9 @@ type UpdateRecordingQualityIssueJSONRequestBody = JsonObject
 
 // UpdateBoundaryRuleJSONRequestBody defines body for UpdateBoundaryRule for application/json ContentType.
 type UpdateBoundaryRuleJSONRequestBody = JsonObject
+
+// UpdateGeminiCredentialJSONRequestBody defines body for UpdateGeminiCredential for application/json ContentType.
+type UpdateGeminiCredentialJSONRequestBody UpdateGeminiCredentialJSONBody
 
 // UpdateKnownScenarioJSONRequestBody defines body for UpdateKnownScenario for application/json ContentType.
 type UpdateKnownScenarioJSONRequestBody = JsonObject
@@ -353,6 +369,15 @@ type ServerInterface interface {
 
 	// (PATCH /v1/settings/boundary-rules/{ruleId})
 	UpdateBoundaryRule(w http.ResponseWriter, r *http.Request, ruleId string)
+
+	// (DELETE /v1/settings/gemini-credential)
+	DeleteGeminiCredential(w http.ResponseWriter, r *http.Request)
+
+	// (GET /v1/settings/gemini-credential)
+	GetGeminiCredential(w http.ResponseWriter, r *http.Request)
+
+	// (PUT /v1/settings/gemini-credential)
+	UpdateGeminiCredential(w http.ResponseWriter, r *http.Request)
 
 	// (PATCH /v1/settings/known-scenarios/{code})
 	UpdateKnownScenario(w http.ResponseWriter, r *http.Request, code string)
@@ -509,6 +534,21 @@ func (_ Unimplemented) GetSettings(w http.ResponseWriter, r *http.Request) {
 
 // (PATCH /v1/settings/boundary-rules/{ruleId})
 func (_ Unimplemented) UpdateBoundaryRule(w http.ResponseWriter, r *http.Request, ruleId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (DELETE /v1/settings/gemini-credential)
+func (_ Unimplemented) DeleteGeminiCredential(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (GET /v1/settings/gemini-credential)
+func (_ Unimplemented) GetGeminiCredential(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// (PUT /v1/settings/gemini-credential)
+func (_ Unimplemented) UpdateGeminiCredential(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1448,6 +1488,66 @@ func (siw *ServerInterfaceWrapper) UpdateBoundaryRule(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteGeminiCredential operation middleware
+func (siw *ServerInterfaceWrapper) DeleteGeminiCredential(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteGeminiCredential(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetGeminiCredential operation middleware
+func (siw *ServerInterfaceWrapper) GetGeminiCredential(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetGeminiCredential(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateGeminiCredential operation middleware
+func (siw *ServerInterfaceWrapper) UpdateGeminiCredential(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	ctx = context.WithValue(ctx, BearerAuthScopes, []string{})
+
+	r = r.WithContext(ctx)
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateGeminiCredential(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // UpdateKnownScenario operation middleware
 func (siw *ServerInterfaceWrapper) UpdateKnownScenario(w http.ResponseWriter, r *http.Request) {
 
@@ -1682,6 +1782,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/v1/settings/boundary-rules/{ruleId}", wrapper.UpdateBoundaryRule)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/v1/settings/gemini-credential", wrapper.DeleteGeminiCredential)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/v1/settings/gemini-credential", wrapper.GetGeminiCredential)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/v1/settings/gemini-credential", wrapper.UpdateGeminiCredential)
 	})
 	r.Group(func(r chi.Router) {
 		r.Patch(options.BaseURL+"/v1/settings/known-scenarios/{code}", wrapper.UpdateKnownScenario)
@@ -2342,6 +2451,64 @@ func (response UpdateBoundaryRule200JSONResponse) VisitUpdateBoundaryRuleRespons
 	return err
 }
 
+type DeleteGeminiCredentialRequestObject struct {
+}
+
+type DeleteGeminiCredentialResponseObject interface {
+	VisitDeleteGeminiCredentialResponse(w http.ResponseWriter) error
+}
+
+type DeleteGeminiCredential204Response struct {
+}
+
+func (response DeleteGeminiCredential204Response) VisitDeleteGeminiCredentialResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type GetGeminiCredentialRequestObject struct {
+}
+
+type GetGeminiCredentialResponseObject interface {
+	VisitGetGeminiCredentialResponse(w http.ResponseWriter) error
+}
+
+type GetGeminiCredential200JSONResponse ProviderCredentialStatus
+
+func (response GetGeminiCredential200JSONResponse) VisitGetGeminiCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateGeminiCredentialRequestObject struct {
+	Body *UpdateGeminiCredentialJSONRequestBody
+}
+
+type UpdateGeminiCredentialResponseObject interface {
+	VisitUpdateGeminiCredentialResponse(w http.ResponseWriter) error
+}
+
+type UpdateGeminiCredential200JSONResponse ProviderCredentialStatus
+
+func (response UpdateGeminiCredential200JSONResponse) VisitUpdateGeminiCredentialResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type UpdateKnownScenarioRequestObject struct {
 	Code string `json:"code"`
 	Body *UpdateKnownScenarioJSONRequestBody
@@ -2457,6 +2624,15 @@ type StrictServerInterface interface {
 
 	// (PATCH /v1/settings/boundary-rules/{ruleId})
 	UpdateBoundaryRule(ctx context.Context, request UpdateBoundaryRuleRequestObject) (UpdateBoundaryRuleResponseObject, error)
+
+	// (DELETE /v1/settings/gemini-credential)
+	DeleteGeminiCredential(ctx context.Context, request DeleteGeminiCredentialRequestObject) (DeleteGeminiCredentialResponseObject, error)
+
+	// (GET /v1/settings/gemini-credential)
+	GetGeminiCredential(ctx context.Context, request GetGeminiCredentialRequestObject) (GetGeminiCredentialResponseObject, error)
+
+	// (PUT /v1/settings/gemini-credential)
+	UpdateGeminiCredential(ctx context.Context, request UpdateGeminiCredentialRequestObject) (UpdateGeminiCredentialResponseObject, error)
 
 	// (PATCH /v1/settings/known-scenarios/{code})
 	UpdateKnownScenario(ctx context.Context, request UpdateKnownScenarioRequestObject) (UpdateKnownScenarioResponseObject, error)
@@ -3300,6 +3476,85 @@ func (sh *strictHandler) UpdateBoundaryRule(w http.ResponseWriter, r *http.Reque
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(UpdateBoundaryRuleResponseObject); ok {
 		if err := validResponse.VisitUpdateBoundaryRuleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteGeminiCredential operation middleware
+func (sh *strictHandler) DeleteGeminiCredential(w http.ResponseWriter, r *http.Request) {
+	var request DeleteGeminiCredentialRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteGeminiCredential(ctx, request.(DeleteGeminiCredentialRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteGeminiCredential")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteGeminiCredentialResponseObject); ok {
+		if err := validResponse.VisitDeleteGeminiCredentialResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetGeminiCredential operation middleware
+func (sh *strictHandler) GetGeminiCredential(w http.ResponseWriter, r *http.Request) {
+	var request GetGeminiCredentialRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetGeminiCredential(ctx, request.(GetGeminiCredentialRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetGeminiCredential")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetGeminiCredentialResponseObject); ok {
+		if err := validResponse.VisitGetGeminiCredentialResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateGeminiCredential operation middleware
+func (sh *strictHandler) UpdateGeminiCredential(w http.ResponseWriter, r *http.Request) {
+	var request UpdateGeminiCredentialRequestObject
+
+	var body UpdateGeminiCredentialJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateGeminiCredential(ctx, request.(UpdateGeminiCredentialRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateGeminiCredential")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateGeminiCredentialResponseObject); ok {
+		if err := validResponse.VisitUpdateGeminiCredentialResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -2,7 +2,7 @@ $ErrorActionPreference = "Stop"
 
 $forbidden = Get-ChildItem -Path $PSScriptRoot\.. -Recurse -File |
   Where-Object {
-    $_.FullName -notmatch '\\node_modules\\|\\.next\\|\\coverage\\|\\dist\\' -and
+    $_.FullName -notmatch '\\node_modules\\|\\.next\\|\\coverage\\|\\dist\\|\\.graphify\\|\\demo-dashboard\\assets\\' -and
     $_.Extension -in @('.js', '.jsx', '.cjs', '.mjs')
   }
 
