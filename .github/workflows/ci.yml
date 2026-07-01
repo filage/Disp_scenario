@@ -54,6 +54,7 @@ jobs:
     needs: [frontend, backend, source-policy]
     env:
       GEMINI_API_KEY: ci-compose-smoke-not-used
+      GEMINI_MODEL: ci-compose-smoke-not-used
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
