@@ -16,9 +16,6 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             <div className="text-[17px] font-bold tracking-tight text-accent">
               DispScenario
             </div>
-            <div className="text-xs text-muted">
-              Analyst v2
-            </div>
           </div>
         </div>
         <div className="overflow-x-auto px-2 pb-3 lg:overflow-visible">

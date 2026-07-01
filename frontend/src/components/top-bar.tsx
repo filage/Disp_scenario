@@ -85,12 +85,6 @@ export function TopBar() {
   return (
     <header className="sticky top-0 z-20 flex h-12 items-center justify-between gap-4 border-b border-line bg-panel px-4 md:px-6">
       <div className="flex min-w-0 items-center gap-4">
-        <strong className="hidden whitespace-nowrap text-[17px] text-[#0b0f16] sm:block">
-          DispScenario Analyst
-        </strong>
-        <span className="hidden whitespace-nowrap text-sm text-[#26364f] lg:inline">
-          Проект Alpha
-        </span>
         <label className="flex h-8 min-w-0 items-center gap-2 rounded-md border border-[#b8c7dc] bg-[#f6f9fd] px-2">
           <span className="hidden text-[10px] font-semibold uppercase tracking-wide text-muted xl:inline">
             Запись
