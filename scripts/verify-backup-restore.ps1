@@ -41,11 +41,13 @@ try {
 
   $ready = $false
   foreach ($attempt in 1..60) {
-    docker exec $postgresContainer pg_isready -U analyst -d analyst *> $null
-    if ($LASTEXITCODE -eq 0) {
-      $ready = $true
-      break
-    }
+    try {
+      docker exec $postgresContainer psql -U analyst -d analyst -Atc "SELECT 1" *> $null
+      if ($LASTEXITCODE -eq 0) {
+        $ready = $true
+        break
+      }
+    } catch { }
     Start-Sleep -Seconds 1
   }
   if (-not $ready) { throw "verification PostgreSQL did not become ready" }
@@ -79,13 +81,15 @@ try {
 
   $minioReady = $false
   foreach ($attempt in 1..60) {
-    docker run --rm --network $network `
-      --entrypoint /bin/sh minio/mc:RELEASE.2025-04-16T18-13-26Z `
-      -c "mc alias set local http://$minioContainer`:9000 analyst analyst-secret >/dev/null" *> $null
-    if ($LASTEXITCODE -eq 0) {
-      $minioReady = $true
-      break
-    }
+    try {
+      docker run --rm --network $network `
+        --entrypoint /bin/sh minio/mc:RELEASE.2025-04-16T18-13-26Z `
+        -c "mc alias set local http://$minioContainer`:9000 analyst analyst-secret >/dev/null" *> $null
+      if ($LASTEXITCODE -eq 0) {
+        $minioReady = $true
+        break
+      }
+    } catch { }
     Start-Sleep -Seconds 1
   }
   if (-not $minioReady) { throw "verification MinIO did not become ready" }
@@ -102,7 +106,11 @@ try {
   Write-Output "PostgreSQL tables: $(@($manifest.database.tables.PSObject.Properties).Count)"
   Write-Output "MinIO objects: $($manifest.objectStorage.objects)"
 } finally {
-  docker rm -f $postgresContainer $minioContainer *> $null
-  docker volume rm $postgresVolume $minioVolume *> $null
-  docker network rm $network *> $null
+  foreach ($container in @($postgresContainer, $minioContainer)) {
+    try { docker rm -f $container *> $null } catch { }
+  }
+  foreach ($volume in @($postgresVolume, $minioVolume)) {
+    try { docker volume rm $volume *> $null } catch { }
+  }
+  try { docker network rm $network *> $null } catch { }
 }
