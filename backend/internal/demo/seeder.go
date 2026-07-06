@@ -17,6 +17,7 @@ type manifest struct {
 	Version int `json:"version"`
 	Videos  []struct {
 		File            string  `json:"file"`
+		OriginalName    string  `json:"originalName"`
 		ObjectKey       string  `json:"objectKey"`
 		ContentType     string  `json:"contentType"`
 		SizeBytes       int64   `json:"sizeBytes"`
@@ -71,6 +72,10 @@ func SeedFixtures(
 	objectKeys := make([]string, 0, len(fixtures.Videos))
 	for _, video := range fixtures.Videos {
 		objectKeys = append(objectKeys, video.ObjectKey)
+		originalName := video.OriginalName
+		if originalName == "" {
+			originalName = video.File
+		}
 		result, err := tx.Exec(ctx, `
 			INSERT INTO recordings (
 				organization_id, original_name, mime_type, size_bytes, duration_sec,
@@ -78,7 +83,7 @@ func SeedFixtures(
 			) VALUES ($1,$2,$3,$4,$5,'UPLOADED','demo_fixture',$6,$7,'demo-seed','demo-seed')
 			ON CONFLICT (object_key) DO NOTHING`,
 			platform.LocalOrganizationID,
-			video.File,
+			originalName,
 			video.ContentType,
 			video.SizeBytes,
 			video.DurationSeconds,
@@ -89,7 +94,7 @@ func SeedFixtures(
 			return fmt.Errorf("seed demo fixture %s: %w", video.File, err)
 		}
 		if result.RowsAffected() > 0 {
-			logger.Info("demo fixture seeded", "file", video.File, "object_key", video.ObjectKey)
+			logger.Info("demo fixture seeded", "file", originalName, "object_key", video.ObjectKey)
 		}
 	}
 	removed, err := tx.Exec(ctx, `

@@ -20,7 +20,8 @@ $env:FIXTURE_S3_SECRET_ACCESS_KEY = "<application-key>"
 
 Alternatively, add the same values to the ignored project `.env` using dotenv syntax (`FIXTURE_S3_ENDPOINT=...`, without the PowerShell `$env:` prefix). The synchronization script reads only these four fixture variables from that file.
 
-Upload the generated recordings from `../output/playwright/videos`:
+Place the recordings listed in the manifest in `tests/fixtures/videos/`, then
+upload them (or pass another directory explicitly):
 
 ```powershell
 ./scripts/sync-test-videos.ps1 -Mode Upload

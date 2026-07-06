@@ -130,7 +130,7 @@ Before creating the Render Blueprint:
 
 1. Create a Neon project in an EU region and copy its `DATABASE_URL` with `sslmode=require`.
 2. In Backblaze, create a bucket-restricted application key with no file-name prefix. It needs list, read, write, and delete access because the API reads `test-fixtures/` and manages `recordings/` objects. Do not reuse the prefix-restricted fixture synchronization key.
-3. Configure bucket CORS for the final `https://<frontend>.onrender.com` origin and allow `GET`, `HEAD`, and `PUT` with all request headers.
+3. Apply `infra/s3/cors.render.xml` to the bucket. If Render assigns a suffixed frontend hostname, update `AllowedOrigin` first.
 4. In Render, create a Blueprint from this repository and provide every variable marked `sync: false`.
 
 Use the Backblaze S3 endpoint for both `S3_ENDPOINT` and `S3_PUBLIC_ENDPOINT`, set `S3_BUCKET` to the private bucket name, and set `S3_REGION` to the region segment from the endpoint. Set `API_URL` to the public API URL and `WEB_ORIGIN` to the public frontend URL. If Render assigns a suffixed hostname, update both values and redeploy.

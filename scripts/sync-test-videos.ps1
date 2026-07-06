@@ -20,11 +20,7 @@ if (-not (Test-Path -LiteralPath $manifestFile -PathType Leaf)) {
   throw "Fixture manifest does not exist: $manifestFile"
 }
 
-$defaultVideoDirectory = if ($Mode -eq "Download") {
-  Join-Path $projectRoot "tests/fixtures/videos"
-} else {
-  Join-Path (Split-Path $projectRoot -Parent) "output/playwright/videos"
-}
+$defaultVideoDirectory = Join-Path $projectRoot "tests/fixtures/videos"
 $videoPath = if ([string]::IsNullOrWhiteSpace($VideoDirectory)) {
   [IO.Path]::GetFullPath($defaultVideoDirectory)
 } elseif ([IO.Path]::IsPathRooted($VideoDirectory)) {
@@ -141,17 +137,26 @@ function Invoke-MinioClient {
     "-e", "FIXTURE_S3_BUCKET",
     "-e", "FIXTURE_S3_ACCESS_KEY_ID",
     "-e", "FIXTURE_S3_SECRET_ACCESS_KEY",
-    "-e", "FIXTURE_FILE=$($Video.file)",
-    "-e", "FIXTURE_OBJECT_KEY=$($Video.objectKey)",
+    "-e", "FIXTURE_FILE",
+    "-e", "FIXTURE_OBJECT_KEY",
     "-v", "${Directory}:/fixtures",
     "--entrypoint", "/bin/sh",
     "minio/mc:RELEASE.2025-04-16T18-13-26Z",
     "-c", $containerCommand
   )
 
-  & docker @dockerArguments
-  if ($LASTEXITCODE -ne 0) {
-    throw "$Operation failed for $($Video.file)"
+  $previousFixtureFile = $env:FIXTURE_FILE
+  $previousFixtureObjectKey = $env:FIXTURE_OBJECT_KEY
+  try {
+    $env:FIXTURE_FILE = $Video.file
+    $env:FIXTURE_OBJECT_KEY = $Video.objectKey
+    & docker @dockerArguments
+    if ($LASTEXITCODE -ne 0) {
+      throw "$Operation failed for $($Video.file)"
+    }
+  } finally {
+    $env:FIXTURE_FILE = $previousFixtureFile
+    $env:FIXTURE_OBJECT_KEY = $previousFixtureObjectKey
   }
 }
 
