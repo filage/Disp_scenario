@@ -14,10 +14,12 @@ const RECORDING_REFRESH_INTERVAL_MS = 3_000;
 
 export function RecordingBrowser({
   recordings,
+  recordingsError,
   playbackBase,
   exportBase,
 }: {
   recordings: Recording[];
+  recordingsError?: string;
   playbackBase: string;
   exportBase: string;
 }) {
@@ -52,6 +54,11 @@ export function RecordingBrowser({
               {recordings.length} записей
             </span>
           </header>
+          {recordingsError ? (
+            <div className="border-b border-[#f0c7c7] bg-[#fff3f3] px-4 py-3 text-sm text-[#9f2d2d]">
+              Не удалось загрузить записи: {recordingsError}
+            </div>
+          ) : null}
           <div className="overflow-x-auto">
             <table className="w-full min-w-[60rem] text-left text-sm">
               <thead className="border-b border-line bg-[#f1f4fa] text-[10px] uppercase tracking-wide text-muted">
@@ -108,7 +115,7 @@ export function RecordingBrowser({
                 ))}
               </tbody>
             </table>
-            {!recordings.length ? (
+            {!recordings.length && !recordingsError ? (
               <p className="p-8 text-sm text-muted">Записей пока нет.</p>
             ) : null}
           </div>

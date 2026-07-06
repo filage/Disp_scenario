@@ -12,6 +12,18 @@ function sleep(milliseconds: number) {
   return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+async function healthResponseMeansBackendIsAwake(response: Response) {
+  if (response.ok) return true;
+  const contentType = response.headers.get("content-type") ?? "";
+  if (!contentType.includes("application/json")) return false;
+  try {
+    const body = (await response.clone().json()) as { status?: unknown };
+    return typeof body.status === "string";
+  } catch {
+    return false;
+  }
+}
+
 export async function ensureBackendReady() {
   if (Date.now() < readyUntil) return;
   let lastError: unknown;
@@ -23,7 +35,7 @@ export async function ensureBackendReady() {
         signal: AbortSignal.timeout(10_000),
         headers: { Accept: "application/json" },
       });
-      if (response.ok) {
+      if (await healthResponseMeansBackendIsAwake(response)) {
         await response.body?.cancel();
         readyUntil = Date.now() + 30_000;
         return;

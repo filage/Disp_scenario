@@ -37,8 +37,7 @@ func main() {
 		os.Exit(1)
 	}
 	if cfg.GeminiAPIKey == "" {
-		logger.Error("configuration failed", "error", "GEMINI_API_KEY is required")
-		os.Exit(1)
+		logger.Warn("GEMINI_API_KEY is not configured; analysis requires a saved user Gemini credential")
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -56,6 +55,10 @@ func main() {
 	}
 	if credentialSecret == "" {
 		credentialSecret = cfg.GeminiAPIKey
+	}
+	if credentialSecret == "" {
+		logger.Error("configuration failed", "error", "CREDENTIALS_ENCRYPTION_KEY or API_SHARED_SECRET is required when GEMINI_API_KEY is not configured")
+		os.Exit(1)
 	}
 	credentialStore, err := credentials.NewStore(pool, credentialSecret)
 	if err != nil {

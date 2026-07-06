@@ -11,6 +11,14 @@ FROM migrate/migrate:v4.18.3 AS migrate
 FROM alpine:3.21
 RUN apk add --no-cache ca-certificates ffmpeg
 WORKDIR /app
+ENV APP_ENV=production \
+    JOB_BACKEND=postgres \
+    AUTH_DISABLED=true \
+    RUN_MIGRATIONS=true \
+    SEED_DEMO_FIXTURES=true \
+    DEMO_FIXTURE_MANIFEST=/app/test-fixtures.json \
+    S3_USE_SSL=true \
+    S3_ENSURE_BUCKET=false
 COPY --from=build /out/api /usr/local/bin/api
 COPY --from=migrate /usr/local/bin/migrate /usr/local/bin/migrate
 COPY backend/migrations /migrations

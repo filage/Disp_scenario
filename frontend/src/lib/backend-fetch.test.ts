@@ -52,4 +52,31 @@ describe("backend cold-start handling", () => {
     expect(response.status).toBe(200);
     expect(fetchMock).toHaveBeenCalledTimes(4);
   });
+
+  it("does not block requests when health reports a degraded live backend", async () => {
+    vi.useFakeTimers();
+    vi.stubEnv("API_URL", "http://api.test");
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValueOnce(
+        Response.json(
+          { status: "degraded", dependencies: { s3: "error" } },
+          { status: 503 },
+        ),
+      )
+      .mockResolvedValueOnce(new Response('{"configured":true}', { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const { fetchBackend } = await import("./backend-fetch");
+
+    const response = await fetchBackend("/v1/settings/gemini-credential", {
+      method: "PUT",
+      body: JSON.stringify({ apiKey: "test-key" }),
+    });
+
+    expect(response.status).toBe(200);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(fetchMock.mock.calls.at(1)?.[0]).toBe(
+      "http://api.test/v1/settings/gemini-credential",
+    );
+  });
 });
