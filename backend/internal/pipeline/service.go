@@ -100,6 +100,7 @@ func (s *Service) Process(ctx context.Context, job Job) error {
 	}
 
 	normalized := domain.Normalize(job.RecordingID, job.AnalysisRunID, extraction.RawEvents)
+	s.prewarmEvidenceFrames(ctx, job.RecordingID, videoPath, tempDir, normalized.ActionEvents)
 	issues := append([]domain.DataQualityIssue(nil), normalized.DataQualityIssues...)
 	scenarioConfig, err := scenario.LoadConfig(ctx, s.pool)
 	if err != nil {
@@ -122,6 +123,52 @@ func (s *Service) Process(ctx context.Context, job Job) error {
 		return err
 	}
 	return tx.Commit(ctx)
+}
+
+func (s *Service) prewarmEvidenceFrames(
+	ctx context.Context,
+	recordingID uuid.UUID,
+	videoPath string,
+	tempDir string,
+	events []domain.ActionEvent,
+) {
+	seen := make(map[int]struct{}, len(events))
+	generated := 0
+	for _, event := range events {
+		if _, exists := seen[event.TimestampMS]; exists {
+			continue
+		}
+		seen[event.TimestampMS] = struct{}{}
+
+		framePath := filepath.Join(tempDir, fmt.Sprintf("evidence-%d.jpg", event.TimestampMS))
+		if err := media.ExtractEvidenceFrame(ctx, videoPath, framePath, event.TimestampMS); err != nil {
+			s.logger.Warn(
+				"prewarm evidence frame failed",
+				"recording_id", recordingID,
+				"timestamp_ms", event.TimestampMS,
+				"error", err,
+			)
+			continue
+		}
+		key := fmt.Sprintf("recordings/%s/evidence/%d.jpg", recordingID, event.TimestampMS)
+		if err := s.storage.Upload(ctx, key, framePath, "image/jpeg"); err != nil {
+			s.logger.Warn(
+				"upload prewarmed evidence frame failed",
+				"recording_id", recordingID,
+				"timestamp_ms", event.TimestampMS,
+				"error", err,
+			)
+			continue
+		}
+		generated++
+	}
+	if generated > 0 {
+		s.logger.Info(
+			"evidence frames prewarmed",
+			"recording_id", recordingID,
+			"frames", generated,
+		)
+	}
 }
 
 func (s *Service) replaceArtifacts(

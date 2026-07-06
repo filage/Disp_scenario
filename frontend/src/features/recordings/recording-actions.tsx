@@ -1,22 +1,71 @@
 "use client";
 
 import { Upload } from "lucide-react";
-import {
-  type DragEvent,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from "react";
+import { type DragEvent, useRef, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 
-const apiUrl =
-  process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
+const apiUrl = process.env.NEXT_PUBLIC_API_URL ?? "/api/backend";
 const subscribeHydration = () => () => {};
+type UploadState =
+  | "idle"
+  | "creating"
+  | "uploading"
+  | "confirming"
+  | "done"
+  | "error";
+
+function uploadToStorage(
+  uploadUrl: string,
+  file: File,
+  onProgress: (progress: number) => void,
+) {
+  return new Promise<void>((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("PUT", uploadUrl);
+    request.setRequestHeader("Content-Type", file.type);
+    request.timeout = 15 * 60 * 1000;
+    request.upload.onprogress = (event) => {
+      if (event.lengthComputable && event.total > 0) {
+        onProgress(Math.round((event.loaded / event.total) * 100));
+      }
+    };
+    request.onload = () => {
+      if (request.status >= 200 && request.status < 300) {
+        onProgress(100);
+        resolve();
+        return;
+      }
+      reject(new Error(`R2 вернул HTTP ${request.status}`));
+    };
+    request.onerror = () =>
+      reject(new Error("Соединение с R2 прервано. Файл не был загружен."));
+    request.onabort = () => reject(new Error("Загрузка отменена."));
+    request.ontimeout = () =>
+      reject(new Error("Загрузка в R2 превысила 15 минут."));
+    request.send(file);
+  });
+}
+
+async function confirmUpload(recordingId: string) {
+  let lastResponse: Response | null = null;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    lastResponse = await fetch(
+      `${apiUrl}/v1/recordings/${recordingId}/uploads/complete`,
+      { method: "POST" },
+    );
+    if (lastResponse.ok || lastResponse.status < 500) return lastResponse;
+    await new Promise((resolve) =>
+      window.setTimeout(resolve, 750 * (attempt + 1)),
+    );
+  }
+  return lastResponse;
+}
 
 export function RecordingUpload() {
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
-  const [state, setState] = useState("idle");
+  const [state, setState] = useState<UploadState>("idle");
+  const [progress, setProgress] = useState(0);
   const [error, setError] = useState("");
   const hydrated = useSyncExternalStore(
     subscribeHydration,
@@ -27,8 +76,11 @@ export function RecordingUpload() {
   async function upload(file?: File) {
     file ??= inputRef.current?.files?.[0];
     if (!file) return;
-    setState("uploading");
+    setState("creating");
+    setProgress(0);
     setError("");
+    let recordingId = "";
+    let objectUploaded = false;
     try {
       const sessionResponse = await fetch(`${apiUrl}/v1/recordings/uploads`, {
         method: "POST",
@@ -44,21 +96,26 @@ export function RecordingUpload() {
         recording: { id: string };
         uploadUrl: string;
       };
-      const uploadResponse = await fetch(session.uploadUrl, {
-        method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
-      });
-      if (!uploadResponse.ok) throw new Error("S3 upload завершился ошибкой");
-      const completeResponse = await fetch(
-        `${apiUrl}/v1/recordings/${session.recording.id}/uploads/complete`,
-        { method: "POST" },
-      );
-      if (!completeResponse.ok) throw new Error("Не удалось подтвердить upload");
+      recordingId = session.recording.id;
+      setState("uploading");
+      await uploadToStorage(session.uploadUrl, file, setProgress);
+      objectUploaded = true;
+      setState("confirming");
+      const completeResponse = await confirmUpload(recordingId);
+      if (!completeResponse)
+        throw new Error("API не ответил при подтверждении upload");
+      if (!completeResponse.ok)
+        throw new Error("Не удалось подтвердить upload");
       setState("done");
       if (inputRef.current) inputRef.current.value = "";
       router.refresh();
     } catch (current) {
+      if (recordingId && !objectUploaded) {
+        await fetch(`${apiUrl}/v1/recordings/${recordingId}`, {
+          method: "DELETE",
+        }).catch(() => undefined);
+        router.refresh();
+      }
       setError(current instanceof Error ? current.message : "Upload failed");
       setState("error");
     }
@@ -66,7 +123,7 @@ export function RecordingUpload() {
 
   function drop(event: DragEvent<HTMLLabelElement>) {
     event.preventDefault();
-    if (state === "uploading") return;
+    if (["creating", "uploading", "confirming"].includes(state)) return;
     const file = event.dataTransfer.files?.[0];
     if (file) void upload(file);
   }
@@ -78,7 +135,9 @@ export function RecordingUpload() {
         id="recording-upload"
         type="file"
         accept="video/mp4,video/webm,.mp4,.webm"
-        disabled={!hydrated || state === "uploading"}
+        disabled={
+          !hydrated || ["creating", "uploading", "confirming"].includes(state)
+        }
         onChange={(event) => void upload(event.target.files?.[0])}
         className="sr-only"
       />
@@ -93,9 +152,13 @@ export function RecordingUpload() {
             <Upload size={23} />
           </span>
           <strong className="mt-3 block text-sm font-semibold">
-            {state === "uploading"
-              ? "Загрузка записи…"
-              : "Перетащите файл сюда или нажмите для выбора"}
+            {state === "creating"
+              ? "Подготовка загрузки…"
+              : state === "uploading"
+                ? `Загрузка в R2: ${progress}%`
+                : state === "confirming"
+                  ? "Проверка загруженного файла…"
+                  : "Перетащите файл сюда или нажмите для выбора"}
           </strong>
           <span className="mt-1 block text-xs text-muted">
             Поддерживаются .webm и .mp4
@@ -112,10 +175,12 @@ export function RecordingUpload() {
 
 export function RecordingActions({
   recordingId,
+  recordingStatus,
   canAnalyze,
   compact = false,
 }: {
   recordingId: string;
+  recordingStatus: string;
   canAnalyze: boolean;
   compact?: boolean;
 }) {
@@ -126,6 +191,14 @@ export function RecordingActions({
     () => true,
     () => false,
   );
+  const analyzeLabel =
+    busy === "analyze"
+      ? "Запуск…"
+      : canAnalyze
+        ? "Анализировать"
+        : recordingStatus === "PENDING_UPLOAD"
+          ? "Ожидает файл"
+          : "Анализируется";
 
   async function mutate(action: "analyze" | "delete") {
     setBusy(action);
@@ -147,11 +220,7 @@ export function RecordingActions({
         onClick={() => mutate("analyze")}
         className="rounded-sm border border-[#b8c7dc] bg-panel px-3 py-1.5 text-xs text-[#41536d] hover:border-accent hover:text-accent active:translate-y-px disabled:opacity-40"
       >
-        {busy === "analyze"
-          ? "Запуск…"
-          : canAnalyze
-            ? "Анализировать"
-            : "Анализируется"}
+        {analyzeLabel}
       </button>
       {!compact ? (
         <>
