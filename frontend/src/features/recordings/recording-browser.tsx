@@ -56,7 +56,6 @@ export function RecordingBrowser({
         if (active) {
           setClientRecordings(payload.items ?? []);
           setClientError("");
-          router.refresh();
         }
       } catch (error) {
         if (active) {
@@ -71,7 +70,6 @@ export function RecordingBrowser({
               ? "Основной API просыпается, повторяем запрос..."
               : message || "Не удалось связаться с API",
           );
-          router.refresh();
         }
       }
     }
@@ -88,7 +86,7 @@ export function RecordingBrowser({
       window.clearTimeout(timeout);
       window.clearInterval(interval);
     };
-  }, [currentError, router]);
+  }, [currentError]);
 
   useEffect(() => {
     if (!hasLiveRecordings) return;
