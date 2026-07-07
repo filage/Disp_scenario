@@ -24,14 +24,61 @@ export function RecordingBrowser({
   exportBase: string;
 }) {
   const router = useRouter();
+  const [clientRecordings, setClientRecordings] = useState<Recording[] | null>(
+    null,
+  );
+  const [clientError, setClientError] = useState<string | null>(null);
+  const currentRecordings = clientRecordings ?? recordings;
+  const currentError = clientError ?? recordingsError ?? "";
   const [selectedId, setSelectedId] = useState(recordings[0]?.id ?? "");
   const selected =
-    recordings.find((recording) => recording.id === selectedId) ??
-    recordings[0] ??
+    currentRecordings.find((recording) => recording.id === selectedId) ??
+    currentRecordings[0] ??
     null;
-  const hasLiveRecordings = recordings.some((recording) =>
+  const hasLiveRecordings = currentRecordings.some((recording) =>
     LIVE_RECORDING_STATUSES.has(recording.status),
   );
+
+  useEffect(() => {
+    if (!currentError) return;
+
+    let active = true;
+    async function reloadRecordings() {
+      try {
+        const response = await fetch("/api/backend/v1/recordings", {
+          headers: { Accept: "application/json" },
+          cache: "no-store",
+        });
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+        const payload = (await response.json()) as { items?: Recording[] };
+        if (active) {
+          setClientRecordings(payload.items ?? []);
+          setClientError("");
+        }
+      } catch (error) {
+        if (active) {
+          setClientError(
+            error instanceof Error ? error.message : "backend is unavailable",
+          );
+        }
+      }
+    }
+
+    const timeout = window.setTimeout(() => {
+      void reloadRecordings();
+    }, 2_000);
+    const interval = window.setInterval(() => {
+      void reloadRecordings();
+    }, 5_000);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
+  }, [currentError]);
 
   useEffect(() => {
     if (!hasLiveRecordings) return;
@@ -51,12 +98,12 @@ export function RecordingBrowser({
           <header className="flex h-12 items-center justify-between border-b border-line bg-panel-raised px-4">
             <h2 className="text-sm font-semibold">Список записей</h2>
             <span className="text-xs text-muted">
-              {recordings.length} записей
+              {currentRecordings.length} записей
             </span>
           </header>
-          {recordingsError ? (
+          {currentError ? (
             <div className="border-b border-[#f0c7c7] bg-[#fff3f3] px-4 py-3 text-sm text-[#9f2d2d]">
-              Не удалось загрузить записи: {recordingsError}
+              Не удалось загрузить записи: {currentError}
             </div>
           ) : null}
           <div className="overflow-x-auto">
@@ -73,7 +120,7 @@ export function RecordingBrowser({
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {recordings.map((recording) => (
+                {currentRecordings.map((recording) => (
                   <tr
                     key={recording.id}
                     onClick={() => setSelectedId(recording.id)}
@@ -115,7 +162,7 @@ export function RecordingBrowser({
                 ))}
               </tbody>
             </table>
-            {!recordings.length && !recordingsError ? (
+            {!currentRecordings.length && !currentError ? (
               <p className="p-8 text-sm text-muted">Записей пока нет.</p>
             ) : null}
           </div>
