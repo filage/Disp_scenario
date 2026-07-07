@@ -29,7 +29,7 @@ export function RecordingBrowser({
   );
   const [clientError, setClientError] = useState<string | null>(null);
   const currentRecordings = clientRecordings ?? recordings;
-  const currentError = clientError ?? recordingsError ?? "";
+  const currentError = recordingsError ? (clientError ?? recordingsError) : "";
   const [selectedId, setSelectedId] = useState(recordings[0]?.id ?? "");
   const selected =
     currentRecordings.find((recording) => recording.id === selectedId) ??
@@ -56,12 +56,22 @@ export function RecordingBrowser({
         if (active) {
           setClientRecordings(payload.items ?? []);
           setClientError("");
+          router.refresh();
         }
       } catch (error) {
         if (active) {
+          const message = error instanceof Error ? error.message : "";
+          const waking =
+            message.includes("503") ||
+            message.includes("NetworkError") ||
+            message.includes("Failed to fetch") ||
+            message.includes("backend is unavailable");
           setClientError(
-            error instanceof Error ? error.message : "backend is unavailable",
+            waking
+              ? "Основной API просыпается, повторяем запрос..."
+              : message || "Не удалось связаться с API",
           );
+          router.refresh();
         }
       }
     }
@@ -78,7 +88,7 @@ export function RecordingBrowser({
       window.clearTimeout(timeout);
       window.clearInterval(interval);
     };
-  }, [currentError]);
+  }, [currentError, router]);
 
   useEffect(() => {
     if (!hasLiveRecordings) return;
