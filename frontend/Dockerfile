@@ -16,6 +16,8 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+ENV API_URL=https://disp-scenario-api.onrender.com
+ENV NEXT_PUBLIC_API_URL=/api/backend
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/public ./public

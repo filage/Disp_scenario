@@ -1,9 +1,21 @@
 import "server-only";
 
-export const backendApiUrl =
-  process.env.API_URL ??
-  process.env.NEXT_PUBLIC_API_URL ??
-  "http://localhost:8787";
+function isAbsoluteHTTPURL(value: string) {
+  return value.startsWith("http://") || value.startsWith("https://");
+}
+
+function resolveBackendApiUrl() {
+  for (const value of [process.env.API_URL, process.env.NEXT_PUBLIC_API_URL]) {
+    if (value && isAbsoluteHTTPURL(value)) return value.replace(/\/$/, "");
+  }
+  const renderHostname = process.env.RENDER_EXTERNAL_HOSTNAME;
+  if (renderHostname?.endsWith(".onrender.com")) {
+    return `https://${renderHostname.replace("-web.", "-api.")}`;
+  }
+  return "http://localhost:8787";
+}
+
+export const backendApiUrl = resolveBackendApiUrl();
 
 const wakeDelaysMS = [0, 1_000, 2_000, 3_000, 4_000, 5_000, 5_000];
 let readyUntil = 0;

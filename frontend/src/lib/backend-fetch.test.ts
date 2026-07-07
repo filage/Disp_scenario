@@ -79,4 +79,12 @@ describe("backend cold-start handling", () => {
       "http://api.test/v1/settings/gemini-credential",
     );
   });
+
+  it("does not use a relative public API URL for server-side backend fetches", async () => {
+    vi.stubEnv("NEXT_PUBLIC_API_URL", "/api/backend");
+    vi.stubEnv("RENDER_EXTERNAL_HOSTNAME", "disp-scenario-web.onrender.com");
+    const { backendApiUrl } = await import("./backend-fetch");
+
+    expect(backendApiUrl).toBe("https://disp-scenario-api.onrender.com");
+  });
 });
