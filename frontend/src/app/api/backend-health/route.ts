@@ -8,12 +8,16 @@ export async function GET() {
       signal: AbortSignal.timeout(30_000),
       headers: { Accept: "application/json" },
     });
-    const body = await response.json().catch(() => null);
+    const contentType = response.headers.get("content-type") ?? "";
+    const body = contentType.includes("application/json")
+      ? await response.json().catch(() => null)
+      : await response.text().catch(() => null);
     return Response.json(
       {
         backendApiUrl,
         status: response.status,
         elapsedMs: Date.now() - started,
+        contentType,
         body,
       },
       { status: response.ok ? 200 : 502 },
