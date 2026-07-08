@@ -1,5 +1,7 @@
 # 🎬 DispScenario Analyst
 
+🌐 **Live demo:** [disp-scenario-web.onrender.com](https://disp-scenario-web.onrender.com)
+
 **DispScenario Analyst** — веб-приложение для анализа видеозаписей диспетчерских сценариев. Оно помогает превратить сырые screen-recording видео в структурированные события, сценарии, QA-замечания, метрики и отчеты.
 
 Проект полезен, когда нужно не просто посмотреть запись, а понять:
