@@ -4,7 +4,29 @@ function isAbsoluteHTTPURL(value: string) {
   return value.startsWith("http://") || value.startsWith("https://");
 }
 
+function isLoopbackURL(value: string) {
+  try {
+    const hostname = new URL(value).hostname;
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  } catch {
+    return false;
+  }
+}
+
 function resolveBackendApiUrl() {
+  if (
+    process.env.INTERNAL_API_URL &&
+    isAbsoluteHTTPURL(process.env.INTERNAL_API_URL)
+  ) {
+    return process.env.INTERNAL_API_URL.replace(/\/$/, "");
+  }
+  if (
+    process.env.API_URL &&
+    isAbsoluteHTTPURL(process.env.API_URL) &&
+    isLoopbackURL(process.env.API_URL)
+  ) {
+    return process.env.API_URL.replace(/\/$/, "");
+  }
   const renderHostname = process.env.RENDER_EXTERNAL_HOSTNAME;
   if (renderHostname?.endsWith(".onrender.com")) {
     return `https://${renderHostname.replace("-web.", "-api.")}`;

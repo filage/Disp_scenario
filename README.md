@@ -114,10 +114,12 @@ The Go API validates JWT signature, issuer, audience, and expiry through OIDC di
 
 ## Free Cloud Deployment
 
-The repository includes `render.yaml` for an occasional-use deployment with two free Render web services:
+The repository includes `render.yaml` for an occasional-use Render deployment:
 
-- `disp-scenario-api`: Go API plus an in-process PostgreSQL job runner;
-- `disp-scenario-web`: Next.js frontend.
+- `disp-scenario-web`: Next.js frontend and a local Go API process in the same
+  container. This avoids waiting for a second free Render service to wake up
+  before recordings can load.
+- `disp-scenario-api`: standalone Go API kept as a fallback/debug endpoint.
 
 Persistent data stays outside Render:
 
@@ -133,11 +135,11 @@ Before creating the Render Blueprint:
 3. Apply `infra/s3/cors.render.xml` to the bucket. If Render assigns a suffixed frontend hostname, update `AllowedOrigin` first.
 4. In Render, create a Blueprint from this repository and provide every variable marked `sync: false`.
 
-Use the Backblaze S3 endpoint for both `S3_ENDPOINT` and `S3_PUBLIC_ENDPOINT`, set `S3_BUCKET` to the private bucket name, and set `S3_REGION` to the region segment from the endpoint. Set `API_URL` to the public API URL and `WEB_ORIGIN` to the public frontend URL. If Render assigns a suffixed hostname, update both values and redeploy.
+Use the Backblaze S3 endpoint for both `S3_ENDPOINT` and `S3_PUBLIC_ENDPOINT`, set `S3_BUCKET` to the private bucket name, and set `S3_REGION` to the region segment from the endpoint. When the web service has the backend variables, its entrypoint starts a local API process and sets `INTERNAL_API_URL=http://127.0.0.1:8787` so server-side frontend requests stay inside the same container. Set `WEB_ORIGIN` to the public frontend URL. If Render assigns a suffixed hostname, update `WEB_ORIGIN` and redeploy.
 
 The Render API image applies database migrations on startup. With `SEED_DEMO_FIXTURES=true`, it validates the five canonical B2 objects and synchronizes their metadata in PostgreSQL, so the deployed demo contains exactly the current fixture set without duplicating video files. Stale `demo_fixture` rows are removed; user uploads are preserved.
 
-For the public demo, set the same random `API_SHARED_SECRET` on both Render services. Set `DEMO_USERNAME`, `DEMO_PASSWORD`, and a random `AUTH_SESSION_SECRET` on the frontend service. The frontend shows its own login page and stores a signed HttpOnly session; the shared secret prevents direct calls to the otherwise auth-disabled demo API. Set a separate random `CREDENTIALS_ENCRYPTION_KEY` on the API service so personal Gemini keys remain decryptable across deployments and shared workers.
+For the public demo, set the same random `API_SHARED_SECRET` on both Render services. Set `DEMO_USERNAME`, `DEMO_PASSWORD`, and a random `AUTH_SESSION_SECRET` on the frontend service. The frontend shows its own login page and stores a signed HttpOnly session; the shared secret prevents direct calls to the otherwise auth-disabled demo API. Set a separate random `CREDENTIALS_ENCRYPTION_KEY` on every service that runs the API, including `disp-scenario-web`, so personal Gemini keys remain decryptable across deployments and shared workers.
 
 ## Backup and Restore
 

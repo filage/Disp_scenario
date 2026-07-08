@@ -1,0 +1,50 @@
+FROM golang:1.25-alpine AS api-build
+WORKDIR /src/backend
+RUN apk add --no-cache git
+COPY backend/go.mod backend/go.sum ./
+RUN go mod download
+COPY backend/ ./
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/api ./cmd/api
+
+FROM migrate/migrate:v4.18.3 AS migrate
+
+FROM node:24-alpine AS frontend-deps
+WORKDIR /src/frontend
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm install
+
+FROM node:24-alpine AS frontend-build
+WORKDIR /src/frontend
+COPY --from=frontend-deps /src/frontend/node_modules ./node_modules
+COPY frontend/ ./
+ARG NEXT_PUBLIC_API_URL=/api/backend
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+RUN npm run build
+
+FROM node:24-alpine AS runtime
+RUN apk add --no-cache ca-certificates ffmpeg
+WORKDIR /app
+ENV NODE_ENV=production \
+    PORT=3000 \
+    HOSTNAME=0.0.0.0 \
+    API_ADDR=127.0.0.1:8787 \
+    NEXT_PUBLIC_API_URL=/api/backend \
+    APP_ENV=production \
+    JOB_BACKEND=postgres \
+    AUTH_DISABLED=true \
+    RUN_MIGRATIONS=true \
+    SEED_DEMO_FIXTURES=true \
+    DEMO_FIXTURE_MANIFEST=/app/test-fixtures.json \
+    S3_USE_SSL=true \
+    S3_ENSURE_BUCKET=false
+COPY --from=frontend-build /src/frontend/.next/standalone ./
+COPY --from=frontend-build /src/frontend/.next/static ./.next/static
+COPY --from=frontend-build /src/frontend/public ./public
+COPY --from=api-build /out/api /usr/local/bin/api
+COPY --from=migrate /usr/local/bin/migrate /usr/local/bin/migrate
+COPY backend/migrations /migrations
+COPY tests/fixtures/videos.json /app/test-fixtures.json
+COPY frontend/render-combined-entrypoint.sh /usr/local/bin/render-combined-entrypoint
+RUN chmod +x /usr/local/bin/render-combined-entrypoint
+EXPOSE 3000
+CMD ["/usr/local/bin/render-combined-entrypoint"]
