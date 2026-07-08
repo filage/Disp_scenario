@@ -5,12 +5,12 @@ function isAbsoluteHTTPURL(value: string) {
 }
 
 function resolveBackendApiUrl() {
-  for (const value of [process.env.API_URL, process.env.NEXT_PUBLIC_API_URL]) {
-    if (value && isAbsoluteHTTPURL(value)) return value.replace(/\/$/, "");
-  }
   const renderHostname = process.env.RENDER_EXTERNAL_HOSTNAME;
   if (renderHostname?.endsWith(".onrender.com")) {
     return `https://${renderHostname.replace("-web.", "-api.")}`;
+  }
+  for (const value of [process.env.API_URL, process.env.NEXT_PUBLIC_API_URL]) {
+    if (value && isAbsoluteHTTPURL(value)) return value.replace(/\/$/, "");
   }
   return "http://localhost:8787";
 }
@@ -44,7 +44,7 @@ export async function ensureBackendReady() {
     try {
       const response = await fetch(`${backendApiUrl}/health`, {
         cache: "no-store",
-        signal: AbortSignal.timeout(10_000),
+        signal: AbortSignal.timeout(30_000),
         headers: { Accept: "application/json" },
       });
       if (await healthResponseMeansBackendIsAwake(response)) {

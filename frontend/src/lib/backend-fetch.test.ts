@@ -87,4 +87,12 @@ describe("backend cold-start handling", () => {
 
     expect(backendApiUrl).toBe("https://disp-scenario-api.onrender.com");
   });
+
+  it("prefers the Render sibling API URL over a stale runtime API_URL", async () => {
+    vi.stubEnv("API_URL", "http://localhost:8787");
+    vi.stubEnv("RENDER_EXTERNAL_HOSTNAME", "disp-scenario-web.onrender.com");
+    const { backendApiUrl } = await import("./backend-fetch");
+
+    expect(backendApiUrl).toBe("https://disp-scenario-api.onrender.com");
+  });
 });
