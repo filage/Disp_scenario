@@ -80,7 +80,7 @@ services:
       - key: AUTH_DISABLED
         value: "true"
       - key: RUN_MIGRATIONS
-        value: "true"
+        value: "false"
       - key: SEED_DEMO_FIXTURES
         value: "true"
       - key: DEMO_FIXTURE_MANIFEST

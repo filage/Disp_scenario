@@ -15,6 +15,9 @@ cleanup() {
 
 trap 'cleanup; exit 143' INT TERM
 
+node server.js &
+web_pid=$!
+
 missing_backend_config=false
 for name in DATABASE_URL S3_ENDPOINT S3_PUBLIC_ENDPOINT S3_ACCESS_KEY S3_SECRET_KEY S3_BUCKET S3_REGION; do
   eval "value=\${$name:-}"
@@ -45,9 +48,6 @@ else
       ;;
   esac
 fi
-
-node server.js &
-web_pid=$!
 
 while true; do
   if [ -n "$api_pid" ] && ! kill -0 "$api_pid" 2>/dev/null; then
