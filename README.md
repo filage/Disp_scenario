@@ -1,62 +1,169 @@
-# DispScenario Analyst
+# 🎬 DispScenario Analyst
 
-DispScenario Analyst is an application for analyzing scenario video recordings. It combines video upload and storage, automated analysis, event normalization, scenario grouping, QA workflows, reporting, and observability in one local or production-like stack.
+**DispScenario Analyst** — веб-приложение для анализа видеозаписей диспетчерских сценариев. Оно помогает превратить сырые screen-recording видео в структурированные события, сценарии, QA-замечания, метрики и отчеты.
 
-## Stack
+Проект полезен, когда нужно не просто посмотреть запись, а понять:
 
-- Frontend: Next.js, React, TypeScript.
-- Backend: Go API and worker.
-- Data: PostgreSQL, Redis/Asynq, S3-compatible storage with MinIO.
-- Observability: Prometheus, Grafana, Loki, Alloy.
-- Tooling: Docker Compose, OpenAPI code generation, sqlc, Playwright, Vitest.
+- какие действия совершал оператор;
+- где сценарий отклонился от ожидаемого процесса;
+- какие шаги повторяются чаще всего;
+- какие проблемы требуют ручной проверки;
+- какие сценарии можно автоматизировать.
 
-## Architecture
+![Обзор аналитики](docs/images/readme-overview.png)
+
+## ✨ Что умеет приложение
+
+- 🎥 **Загрузка видеозаписей**: `.webm` и `.mp4`, хранение через S3/MinIO или Backblaze B2.
+- 🧠 **AI-анализ через Gemini**: извлечение действий, экранных переходов, событий и подозрительных мест.
+- 🧩 **Нормализация событий**: Go pipeline приводит сырые события к единому формату.
+- 🗺️ **Карта сценариев**: граф переходов между действиями с частотой, уверенностью и проблемными зонами.
+- 🕒 **Таймлайн**: последовательность событий с привязкой ко времени видео.
+- 🛡️ **QA-проверка**: ручная валидация спорных фрагментов, проблем качества и границ сценариев.
+- 📊 **Отчеты**: сводка по сценариям, метрикам, кандидатам на автоматизацию и CSV-экспортам.
+- ⚙️ **Настройки Gemini**: персональный ключ можно сохранить в интерфейсе; он шифруется в PostgreSQL.
+- 📡 **Production-like observability**: Prometheus, Grafana, Loki, Alloy, backup/restore и smoke-тесты.
+
+## 🖼️ Интерфейс
+
+### Записи и загрузка
+
+Страница записей показывает все видео, статусы анализа, размер, длительность, превью и действия: анализ, повтор, экспорт, удаление.
+
+![Управление записями](docs/images/readme-recordings.png)
+
+### Таймлайн событий
+
+Таймлайн помогает проверить порядок действий и быстро найти место в видео, где появился конкретный шаг сценария.
+
+![Таймлайн](docs/images/readme-timeline.png)
+
+### Карта сценариев
+
+Граф показывает частые переходы между действиями и помогает найти устойчивые сценарии, развилки и точки для автоматизации.
+
+![Карта сценариев](docs/images/readme-scenario-map.png)
+
+### QA-проверка
+
+QA-экран нужен для ручного контроля качества: спорные события, границы сценариев, проблемы распознавания и исправления.
+
+![QA-проверка](docs/images/readme-qa.png)
+
+### Отчеты
+
+Отчеты собирают результаты анализа в прикладной вид: сценарии, частотность, длительность, качество данных и экспорт.
+
+![Отчеты](docs/images/readme-reports.png)
+
+## 🧭 Как это работает
 
 ```text
-Browser -> Next.js -> Go API -> PostgreSQL
-                    |  |-> signed upload/playback -> S3/MinIO
-                    |  |-> transactional outbox -> Redis/Asynq
-                    |
-                    +-> Go worker
-                         |-> ffprobe/ffmpeg
-                         |-> Gemini provider
-                         +-> deterministic analysis pipeline
+Видео → S3/MinIO → Go API → очередь задач → worker / postgres runner
+      → Gemini → сырые события → нормализация → сценарии → QA → отчеты
 ```
 
-PostgreSQL stores recording metadata, analysis runs, normalized events, scenarios, QA decisions, and reports. Redis is used for background job delivery. S3/MinIO stores video files and evidence frames. The API and worker are separate processes built from the same Go module.
+1. Пользователь загружает запись через frontend.
+2. Backend выдает signed URL и сохраняет метаданные в PostgreSQL.
+3. Анализ запускается как фоновая задача.
+4. Gemini извлекает действия из видео.
+5. Go pipeline нормализует события, строит сценарии и метрики.
+6. UI показывает записи, таймлайн, карту сценариев, QA и отчеты.
 
-## Features
+## 🧱 Технологии
 
-- Video recording ingestion with signed upload and playback URLs.
-- Gemini-based video analysis with structured event extraction.
-- Deterministic normalization of events, actions, boundaries, and metrics.
-- Scenario grouping, timeline views, QA review, and report generation.
-- Operational dashboards, metrics, logs, backup, restore, and smoke checks.
-- Role-aware API authentication with local auth-disabled mode and OIDC support.
+| Слой | Стек |
+| --- | --- |
+| Frontend | Next.js, React, TypeScript, Tailwind CSS |
+| Backend | Go API, OpenAPI strict server, PostgreSQL runner |
+| AI | Gemini video analysis |
+| Очереди | Redis/Asynq локально, PostgreSQL backend на Render |
+| Данные | PostgreSQL |
+| Файлы | S3-compatible storage: MinIO локально, Backblaze B2 в облаке |
+| Observability | Prometheus, Grafana, Loki, Alloy |
+| Тесты | Vitest, Playwright, Go tests, integration tests |
+| Инфраструктура | Docker Compose, Render Blueprint |
 
-## Quick Start
+## 📁 Структура проекта
 
-Requirements: Docker Desktop with Compose v2 and at least 6 GB of free memory.
+```text
+analyst-app-v2/
+├── api/                    # OpenAPI contract
+├── backend/                # Go API, worker, migrations, domain pipeline
+│   ├── cmd/                # api, worker, migration utilities
+│   ├── internal/           # business logic, storage, jobs, vision, auth
+│   └── migrations/         # PostgreSQL migrations
+├── frontend/               # Next.js dashboard
+│   ├── src/app/            # App Router pages and API proxy routes
+│   ├── src/features/       # recordings, QA, reports, auth, events
+│   └── src/lib/            # API clients, session, backend proxy
+├── docs/                   # runbooks, audits, screenshots
+├── infra/                  # S3 CORS and infrastructure helpers
+├── scripts/                # backup, restore, E2E and verification scripts
+├── tests/                  # fixtures and E2E assets
+├── docker-compose.yml      # local full-stack environment
+├── render.yaml             # Render deployment blueprint
+└── Makefile                # common development commands
+```
+
+## 🚀 Быстрый запуск через Docker Compose
+
+### 1. Требования
+
+- Docker Desktop с Compose v2.
+- 6+ GB свободной памяти.
+- PowerShell для Windows-команд.
+- Gemini API key, если нужен реальный AI-анализ.
+
+### 2. Создать `.env`
 
 ```powershell
 Copy-Item .env.example .env
+```
+
+Минимально для локального запуска можно оставить значения из `.env.example`. Для реального анализа добавьте:
+
+```dotenv
+GEMINI_API_KEY=your_gemini_key
+```
+
+Для сохранения персональных Gemini-ключей в UI лучше также задать:
+
+```dotenv
+CREDENTIALS_ENCRYPTION_KEY=long-random-secret
+```
+
+### 3. Поднять весь стек
+
+```powershell
 docker compose up -d --build
 docker compose ps
 ```
 
-Services:
+### 4. Открыть сервисы
 
-- frontend: `http://localhost:3000`
-- API health: `http://localhost:8787/health`
-- MinIO console: `http://localhost:9001`
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3001` (`admin` / `analyst`)
+- 🌐 Frontend: `http://localhost:3000`
+- ❤️ API health: `http://localhost:8787/health`
+- 🗂️ MinIO console: `http://localhost:9001`
+- 📈 Prometheus: `http://localhost:9090`
+- 📊 Grafana: `http://localhost:3001` (`admin` / `analyst`)
 
-`GEMINI_API_KEY` remains the server fallback used by maintenance operations. Each user saves a personal Gemini key in the application settings before starting a new video analysis. Personal keys are encrypted in PostgreSQL with `CREDENTIALS_ENCRYPTION_KEY` (or, if omitted, the server derives the encryption key from `API_SHARED_SECRET`). The model is configured with `GEMINI_MODEL`.
+## 🧪 Разработка
 
-## Development
+Установить frontend-зависимости:
 
-Common commands are available through `Makefile`:
+```powershell
+cd frontend
+npm install
+```
+
+Запустить frontend отдельно:
+
+```powershell
+npm run dev
+```
+
+Частые команды из корня проекта:
 
 ```powershell
 make generate
@@ -64,45 +171,57 @@ make test
 make lint
 make security
 make verify-no-js
-make verify-plan-e2e-coverage
 ```
 
-OpenAPI generation produces TypeScript client types and Go strict server types. SQL queries generate the `backend/internal/database/db` package.
-
-Frontend commands can be run from `frontend`:
+Frontend-команды:
 
 ```powershell
-npm install
-npm run dev
+cd frontend
 npm run lint
-npm run test
+npm test
+npm run build
 npm run test:e2e
 ```
 
-Backend commands can be run from `backend`:
+Backend-команды:
 
 ```powershell
+cd backend
 go test ./...
 go test -race ./...
 ```
 
-Source `.js`, `.jsx`, `.cjs`, and `.mjs` files are intentionally not used. Compiled artifacts, local outputs, dependencies, backups, and environment files are not committed.
+Если Go не установлен локально, `Makefile` запускает Go-команды через Docker-образ.
 
-## Full-Stack E2E
+## ✅ Тестирование и качество
 
-The full-stack E2E flow verifies upload to S3, job scheduling through Redis/Asynq, real Gemini analysis, timeline output, QA fragments, reports, exports, Loki correlation logs, cleanup, and unsupported upload handling.
+Проект проверяет несколько уровней:
+
+- unit-тесты frontend через Vitest;
+- Go unit/integration tests;
+- OpenAPI generation и contract checks;
+- Playwright E2E;
+- full-stack E2E с загрузкой видео, S3, Redis/Asynq, Gemini и отчетами;
+- `govulncheck`, `staticcheck`, `golangci-lint`;
+- проверка, что исходные `.js/.jsx/.cjs/.mjs` файлы не используются.
+
+Полный E2E:
 
 ```powershell
 make test-e2e-full
 ```
 
-CI can provide the real-video fixture through `E2E_REAL_VIDEO_URL`.
+## 🔐 Авторизация
 
-## Authentication
+Локально по умолчанию:
 
-Local Compose uses `AUTH_DISABLED=true` and creates a principal with `admin`, `analyst`, and `viewer` roles.
+```dotenv
+AUTH_DISABLED=true
+```
 
-For OIDC:
+В таком режиме API создает development principal с ролями `admin`, `analyst`, `viewer`.
+
+Для OIDC:
 
 ```dotenv
 AUTH_DISABLED=false
@@ -110,45 +229,124 @@ OIDC_ISSUER=https://identity.example.com/
 OIDC_CLIENT_ID=dispscenario-analyst
 ```
 
-The Go API validates JWT signature, issuer, audience, and expiry through OIDC discovery/JWKS. The `roles` or `role` claim must contain `viewer`, `analyst`, or `admin`.
+На Render frontend использует demo login через `DEMO_USERNAME`, `DEMO_PASSWORD` и signed HttpOnly session cookie. Основной Go API защищается shared secret между frontend и API.
 
-## Free Cloud Deployment
+## ☁️ Деплой на Render
 
-The repository includes `render.yaml` for an occasional-use Render deployment:
+В репозитории есть `render.yaml` для occasional-use деплоя.
 
-- `disp-scenario-web`: Next.js frontend and a local Go API process in the same
-  container. This avoids waiting for a second free Render service to wake up
-  before recordings can load.
-- `disp-scenario-api`: standalone Go API kept as a fallback/debug endpoint.
+Текущая схема:
 
-Persistent data stays outside Render:
+- `disp-scenario-web` — Next.js frontend и локальный Go API в одном контейнере.
+- `disp-scenario-api` — отдельный API-сервис как fallback/debug endpoint.
+- Neon хранит PostgreSQL.
+- Backblaze B2 хранит видео и evidence frames.
 
-- Neon Free stores PostgreSQL data;
-- a private Backblaze B2 bucket stores videos and evidence.
+Почему web и API объединены в одном Render web service: на free plan отдельные сервисы засыпают, и пользователю приходилось ждать два cold start. Теперь открытие frontend будит контейнер, внутри которого сразу есть локальный API на `127.0.0.1:8787`.
 
-The cloud API uses `JOB_BACKEND=postgres`, so Redis and a continuously running worker are not required. Local Docker Compose keeps the existing Redis/Asynq worker path.
+Ключевые переменные для `disp-scenario-web`:
 
-Before creating the Render Blueprint:
+```dotenv
+DATABASE_URL=
+S3_ENDPOINT=
+S3_PUBLIC_ENDPOINT=
+S3_ACCESS_KEY=
+S3_SECRET_KEY=
+S3_BUCKET=
+S3_REGION=
+API_SHARED_SECRET=
+CREDENTIALS_ENCRYPTION_KEY=
+GEMINI_API_KEY=
+DEMO_USERNAME=
+DEMO_PASSWORD=
+AUTH_SESSION_SECRET=
+RUN_MIGRATIONS=false
+```
 
-1. Create a Neon project in an EU region and copy its `DATABASE_URL` with `sslmode=require`.
-2. In Backblaze, create a bucket-restricted application key with no file-name prefix. It needs list, read, write, and delete access because the API reads `test-fixtures/` and manages `recordings/` objects. Do not reuse the prefix-restricted fixture synchronization key.
-3. Apply `infra/s3/cors.render.xml` to the bucket. If Render assigns a suffixed frontend hostname, update `AllowedOrigin` first.
-4. In Render, create a Blueprint from this repository and provide every variable marked `sync: false`.
+Миграции выполняет отдельный `disp-scenario-api`, а web-сервис стартует быстро и не блокирует port scan Render.
 
-Use the Backblaze S3 endpoint for both `S3_ENDPOINT` and `S3_PUBLIC_ENDPOINT`, set `S3_BUCKET` to the private bucket name, and set `S3_REGION` to the region segment from the endpoint. When the web service has the backend variables, its entrypoint starts a local API process and sets `INTERNAL_API_URL=http://127.0.0.1:8787` so server-side frontend requests stay inside the same container. Set `WEB_ORIGIN` to the public frontend URL. If Render assigns a suffixed hostname, update `WEB_ORIGIN` and redeploy.
+Проверка режима backend:
 
-The Render API image applies database migrations on startup. With `SEED_DEMO_FIXTURES=true`, it validates the five canonical B2 objects and synchronizes their metadata in PostgreSQL, so the deployed demo contains exactly the current fixture set without duplicating video files. Stale `demo_fixture` rows are removed; user uploads are preserved.
+```text
+https://disp-scenario-web.onrender.com/api/backend-health
+```
 
-For the public demo, set the same random `API_SHARED_SECRET` on both Render services. Set `DEMO_USERNAME`, `DEMO_PASSWORD`, and a random `AUTH_SESSION_SECRET` on the frontend service. The frontend shows its own login page and stores a signed HttpOnly session; the shared secret prevents direct calls to the otherwise auth-disabled demo API. Set a separate random `CREDENTIALS_ENCRYPTION_KEY` on every service that runs the API, including `disp-scenario-web`, so personal Gemini keys remain decryptable across deployments and shared workers.
+Ожидаемый ответ:
 
-## Backup and Restore
+```json
+{
+  "backendMode": "local",
+  "localApiConfigured": true,
+  "backendApiUrl": "http://127.0.0.1:8787",
+  "status": 200
+}
+```
+
+## 💾 Backup / Restore
+
+Создать backup:
 
 ```powershell
 ./scripts/backup.ps1
+```
+
+Проверить backup:
+
+```powershell
 ./scripts/verify-backup-restore.ps1 -ManifestFile ./backups/manifest-<timestamp>.json
+```
+
+Восстановить данные:
+
+```powershell
 ./scripts/restore.ps1 `
   -ManifestFile ./backups/manifest-<timestamp>.json `
   -ConfirmDataReplacement
 ```
 
-Backup creates a PostgreSQL dump, MinIO volume archive, and manifest with SHA-256 checksums and object/table counters. Restore requires explicit confirmation, validates checksums, and replaces the current PostgreSQL database and MinIO volume.
+Backup включает PostgreSQL dump, архив MinIO volume и manifest с SHA-256 checksums.
+
+## 🛠️ Частые проблемы
+
+### Записи не грузятся на Render
+
+Проверьте:
+
+```text
+https://disp-scenario-web.onrender.com/api/backend-health
+```
+
+Если `backendMode` не `local`, значит web-сервис не видит backend env-переменные или запущен старый деплой.
+
+### Gemini-анализ не стартует
+
+Проверьте:
+
+- `GEMINI_API_KEY` в `.env` или сохраненный персональный ключ в UI;
+- `CREDENTIALS_ENCRYPTION_KEY`, если ключ сохраняется через настройки;
+- статус job runner в `/health`.
+
+### Видео не открывается
+
+Проверьте:
+
+- `S3_ENDPOINT` и `S3_PUBLIC_ENDPOINT`;
+- CORS на bucket;
+- доступность MinIO/Backblaze;
+- что объект реально существует в bucket.
+
+### Docker Compose долго стартует
+
+Первый запуск собирает frontend, backend, worker и инфраструктурные сервисы. Обычно помогает:
+
+```powershell
+docker compose ps
+docker compose logs api
+docker compose logs frontend
+```
+
+## 📌 Для чего проект
+
+DispScenario Analyst закрывает разрыв между “у нас есть видео работы оператора” и “у нас есть проверяемая модель процесса”. Он нужен для анализа сценариев, поиска узких мест, подготовки QA-разметки и отбора кандидатов на автоматизацию.
+
+Итоговый артефакт — не просто запись экрана, а набор событий, сценариев, проблем качества, метрик и отчетов, которые можно обсуждать с аналитиками, QA и командой автоматизации.
