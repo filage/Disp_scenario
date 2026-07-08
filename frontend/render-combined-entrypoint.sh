@@ -15,9 +15,6 @@ cleanup() {
 
 trap 'cleanup; exit 143' INT TERM
 
-node server.js &
-web_pid=$!
-
 missing_backend_config=false
 for name in DATABASE_URL S3_ENDPOINT S3_PUBLIC_ENDPOINT S3_ACCESS_KEY S3_SECRET_KEY S3_BUCKET S3_REGION; do
   eval "value=\${$name:-}"
@@ -33,13 +30,7 @@ if [ -z "${CREDENTIALS_ENCRYPTION_KEY:-}" ] && [ -z "${API_SHARED_SECRET:-}" ] &
 fi
 
 if [ "$missing_backend_config" = "false" ]; then
-  if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
-    migrate -path /migrations -database "$DATABASE_URL" up
-  fi
-
   export INTERNAL_API_URL=http://127.0.0.1:8787
-  api &
-  api_pid=$!
 else
   unset INTERNAL_API_URL
   case "${API_URL:-}" in
@@ -47,6 +38,18 @@ else
       unset API_URL
       ;;
   esac
+fi
+
+node server.js &
+web_pid=$!
+
+if [ "$missing_backend_config" = "false" ]; then
+  if [ "${RUN_MIGRATIONS:-false}" = "true" ]; then
+    migrate -path /migrations -database "$DATABASE_URL" up
+  fi
+
+  api &
+  api_pid=$!
 fi
 
 while true; do
