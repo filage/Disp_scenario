@@ -12,6 +12,23 @@ import type { Recording } from "@/lib/data";
 const LIVE_RECORDING_STATUSES = new Set(["PENDING_UPLOAD", "PROCESSING"]);
 const RECORDING_REFRESH_INTERVAL_MS = 3_000;
 
+async function fetchRecordingsWithWarmup() {
+  await fetch("/api/backend-health", {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  }).catch(() => undefined);
+
+  const response = await fetch("/api/backend/v1/recordings", {
+    headers: { Accept: "application/json" },
+    cache: "no-store",
+  });
+  if (!response.ok) {
+    throw new Error(`HTTP ${response.status}`);
+  }
+  const payload = (await response.json()) as { items?: Recording[] };
+  return payload.items ?? [];
+}
+
 export function RecordingBrowser({
   recordings,
   recordingsError,
@@ -28,6 +45,7 @@ export function RecordingBrowser({
     null,
   );
   const [clientError, setClientError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
   const currentRecordings = clientRecordings ?? recordings;
   const currentError = recordingsError ? (clientError ?? recordingsError) : "";
   const [selectedId, setSelectedId] = useState(recordings[0]?.id ?? "");
@@ -45,22 +63,16 @@ export function RecordingBrowser({
     let active = true;
     async function reloadRecordings() {
       try {
-        const response = await fetch("/api/backend/v1/recordings", {
-          headers: { Accept: "application/json" },
-          cache: "no-store",
-        });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}`);
-        }
-        const payload = (await response.json()) as { items?: Recording[] };
+        const items = await fetchRecordingsWithWarmup();
         if (active) {
-          setClientRecordings(payload.items ?? []);
+          setClientRecordings(items);
           setClientError("");
         }
       } catch (error) {
         if (active) {
           const message = error instanceof Error ? error.message : "";
           const waking =
+            message.includes("502") ||
             message.includes("503") ||
             message.includes("NetworkError") ||
             message.includes("Failed to fetch") ||
@@ -88,6 +100,28 @@ export function RecordingBrowser({
     };
   }, [currentError]);
 
+  async function retryNow() {
+    setRetrying(true);
+    try {
+      const items = await fetchRecordingsWithWarmup();
+      setClientRecordings(items);
+      setClientError("");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      setClientError(
+        message.includes("502") ||
+          message.includes("503") ||
+          message.includes("NetworkError") ||
+          message.includes("Failed to fetch") ||
+          message.includes("backend is unavailable")
+          ? "Основной API временно недоступен на Render, повторяем запрос..."
+          : message || "Не удалось связаться с API",
+      );
+    } finally {
+      setRetrying(false);
+    }
+  }
+
   useEffect(() => {
     if (!hasLiveRecordings) return;
 
@@ -110,8 +144,16 @@ export function RecordingBrowser({
             </span>
           </header>
           {currentError ? (
-            <div className="border-b border-[#f0c7c7] bg-[#fff3f3] px-4 py-3 text-sm text-[#9f2d2d]">
-              Не удалось загрузить записи: {currentError}
+            <div className="flex items-center justify-between gap-3 border-b border-[#f0c7c7] bg-[#fff3f3] px-4 py-3 text-sm text-[#9f2d2d]">
+              <span>Не удалось загрузить записи: {currentError}</span>
+              <button
+                type="button"
+                onClick={retryNow}
+                disabled={retrying}
+                className="shrink-0 rounded-sm border border-[#c96a6a] px-3 py-1 text-xs font-medium hover:bg-[#ffe4e4] disabled:opacity-60"
+              >
+                {retrying ? "Повторяем..." : "Повторить"}
+              </button>
             </div>
           ) : null}
           <div className="overflow-x-auto">
