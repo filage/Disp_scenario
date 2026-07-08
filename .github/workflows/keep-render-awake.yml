@@ -1,0 +1,17 @@
+name: Keep Render Awake
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Ping Render services
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --max-time 30 https://disp-scenario-api.onrender.com/health
+          curl --fail --silent --show-error --max-time 30 https://disp-scenario-web.onrender.com/api/health
